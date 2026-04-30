@@ -26,17 +26,18 @@ MEALS: dict[str, list[Meal]] = {
         Meal("Café con leche zero lactosa y tostadas con queso y tomate", "leche zero lactosa", ("infusión", "baja lactosa"), {"café": 1, "leche zero lactosa": 200, "pan de molde": 2, "queso cremoso": 50, "tomate": 1}, "Tostar el pan y sumar queso con tomate."),
     ],
     "almuerzo": [
-        Meal("Bowl de peceto, arroz y verduras", "peceto", ("proteico", "batch"), {"peceto": 180, "arroz": 80, "verduras mixtas": 250}, "Cocinar arroz y sumar peceto a la plancha con verduras."),
-        Meal("Hamburguesas Paty con papa y ensalada", "hamburguesas Paty", ("proteico", "rápido"), {"hamburguesas Paty": 2, "papa": 250, "lechuga": 80, "tomate": 1}, "Cocinar las hamburguesas a la plancha y servir con papa y ensalada."),
-        Meal("Ensalada de atún, garbanzos y huevo", "atún", ("rápido",), {"atún": 1, "garbanzos": 160, "huevo": 1, "verduras mixtas": 200}, "Mezclar todo y condimentar."),
-        Meal("Lentejas guisadas con arroz", "lentejas", ("vegetariano", "económico"), {"lentejas": 120, "arroz": 60, "verduras mixtas": 200}, "Cocinar como guiso liviano."),
+        Meal("Bowl de peceto, arroz y verduras grilladas", "peceto", ("proteico", "batch"), {"peceto": 180, "arroz": 80, "zanahoria": 100, "pimiento rojo": 80, "cebolla": 70}, "Cocinar arroz y sumar peceto a la plancha con zanahoria, pimiento y cebolla."),
+        Meal("Hamburguesas Paty con papa y ensalada de lechuga y tomate", "hamburguesas Paty", ("proteico", "rápido"), {"hamburguesas Paty": 2, "papa": 250, "lechuga": 80, "tomate": 1}, "Cocinar las hamburguesas a la plancha y servir con papa y ensalada de lechuga y tomate."),
+        Meal("Ensalada de atún, garbanzos, huevo, tomate y zanahoria", "atún", ("rápido",), {"atún": 1, "garbanzos": 160, "huevo": 1, "tomate": 1, "zanahoria": 100, "lechuga": 80}, "Mezclar atún, garbanzos, huevo, tomate, zanahoria y lechuga; condimentar al final."),
+        Meal("Lentejas guisadas con arroz, zanahoria y pimiento", "lentejas", ("vegetariano", "económico"), {"lentejas": 120, "arroz": 60, "zanahoria": 120, "pimiento rojo": 80, "cebolla": 70}, "Cocinar como guiso liviano con zanahoria, pimiento y cebolla."),
         Meal("Fideos con muslo de pollo, tomate y espinaca", "muslo de pollo", ("proteico", "rápido"), {"muslo de pollo": 170, "fideos": 80, "tomate": 1, "espinaca": 100}, "Saltear pollo y verduras mientras se hacen los fideos."),
-        Meal("Tacos de roast beef magro con verduras", "roast beef", ("proteico", "rápido"), {"roast beef": 170, "tortillas": 2, "verduras mixtas": 220}, "Saltear carne y verduras, armar tacos."),
-        Meal("Arroz salteado con atún y vegetales", "atún", ("rápido", "económico"), {"arroz": 80, "atún": 1, "verduras mixtas": 250}, "Usar arroz cocido y saltear con vegetales."),
+        Meal("Tacos de roast beef con pimiento, cebolla y tomate", "roast beef", ("proteico", "rápido"), {"roast beef": 170, "tortillas": 2, "pimiento rojo": 100, "cebolla": 80, "tomate": 1}, "Saltear carne con pimiento y cebolla, armar tacos y terminar con tomate."),
+        Meal("Arroz salteado con atún, zanahoria y pimiento", "atún", ("rápido", "económico"), {"arroz": 80, "atún": 1, "zanahoria": 120, "pimiento rojo": 100, "cebolla": 70}, "Usar arroz cocido y saltear con atún, zanahoria, pimiento y cebolla."),
         Meal("Milanesas de pechuga al horno con ensalada", "pechuga de pollo milanesa", ("milanesa", "proteico"), {"pechuga de pollo para milanesa": 180, "pan rallado": 40, "huevo": 0.5, "lechuga": 80, "tomate": 1}, "Hornear o air fryer y servir con ensalada."),
         Meal("Milanesas de nalga al horno con puré", "nalga milanesa", ("milanesa", "proteico"), {"nalga para milanesa": 180, "pan rallado": 40, "huevo": 0.5, "papa": 250}, "Hornear o air fryer y acompañar con puré."),
-        Meal("Wok de cuadril con verduras", "cuadril", ("proteico", "rápido"), {"cuadril": 180, "verduras mixtas": 280}, "Saltear tiras de cuadril y verduras a fuego fuerte."),
+        Meal("Wok de cuadril con zanahoria, pimiento y cebolla", "cuadril", ("proteico", "rápido"), {"cuadril": 180, "zanahoria": 120, "pimiento rojo": 100, "cebolla": 80}, "Saltear tiras de cuadril con zanahoria, pimiento y cebolla a fuego fuerte."),
         Meal("Merluza con papas air fryer y ensalada", "merluza", ("proteico", "rápido"), {"merluza": 180, "papas tipo McCain para air fryer": 180, "lechuga": 80, "tomate": 1}, "Cocinar papas en air fryer y hacer la merluza a la plancha."),
+        Meal("Shakshuka simple con tostadas", "huevo shakshuka", ("nuevo", "proteico"), {"huevo": 2, "tomate perita lata": 200, "pimiento rojo": 120, "pan de molde": 2}, "Cocinar tomate y morrón especiados, cascar huevos arriba y servir con tostadas."),
     ],
     "merienda": [
         Meal("Yogur con granola y fruta", "yogur", ("rápido",), {"yogur": 200, "granola": 40, "fruta de estación": 1}, "Servir en bowl."),
@@ -47,21 +48,23 @@ MEALS: dict[str, list[Meal]] = {
     ],
     "cena": [
         Meal("Tortilla de papa con ensalada", "huevo", ("económico",), {"huevo": 3, "papa": 250, "lechuga": 80, "tomate": 1}, "Preparar tortilla y servir con ensalada."),
-        Meal("Fideos con ricota baja lactosa y vegetales", "ricota baja lactosa", ("batch",), {"fideos": 80, "ricota baja lactosa": 120, "verduras mixtas": 250}, "Saltear verduras, sumar fideos y ricota al final."),
-        Meal("Omelette de verduras con ensalada", "huevo", ("rápido",), {"huevo": 3, "verduras mixtas": 180, "lechuga": 80}, "Hacer omelette y acompañar."),
-        Meal("Bife de bola de lomo con ensalada grande y batata", "bola de lomo", ("proteico", "saludable"), {"bola de lomo": 200, "batata": 220, "verduras mixtas": 250}, "Plancha fuerte para el bife y verduras frescas."),
-        Meal("Vacío al horno con ensalada y papas", "vacío", ("gusto semanal", "asado"), {"vacío": 220, "papa": 250, "verduras mixtas": 220}, "Cocinar el vacío al horno o parrilla y acompañar con ensalada y papas."),
-        Meal("Entraña a la plancha con ensalada criolla", "entraña", ("gusto semanal", "asado"), {"entraña": 200, "tomate": 1, "pimiento rojo": 120, "verduras mixtas": 180}, "Dorar la entraña fuerte y servir con ensalada criolla."),
-        Meal("Asado al horno con verduras", "asado", ("gusto semanal", "asado"), {"asado": 230, "verduras mixtas": 260, "papa": 180}, "Cocinar el asado lento y sumar verduras al horno."),
+        Meal("Fideos con ricota baja lactosa, espinaca y tomate", "ricota baja lactosa", ("batch",), {"fideos": 80, "ricota baja lactosa": 120, "espinaca": 100, "tomate": 1}, "Saltear espinaca y tomate, sumar fideos y ricota al final."),
+        Meal("Omelette de espinaca con ensalada de lechuga y zanahoria", "huevo", ("rápido",), {"huevo": 3, "espinaca": 100, "lechuga": 80, "zanahoria": 100}, "Hacer omelette de espinaca y acompañar con lechuga y zanahoria."),
+        Meal("Bife de bola de lomo con ensalada de rúcula, tomate y batata", "bola de lomo", ("proteico", "saludable"), {"bola de lomo": 200, "batata": 220, "rucula": 80, "tomate": 1}, "Plancha fuerte para el bife y ensalada de rúcula y tomate."),
+        Meal("Vacío al horno con ensalada de lechuga, tomate y papas", "vacío", ("gusto semanal", "asado"), {"vacío": 220, "papa": 250, "lechuga": 80, "tomate": 1}, "Cocinar el vacío al horno o parrilla y acompañar con ensalada de lechuga y tomate."),
+        Meal("Entraña a la plancha con ensalada criolla", "entraña", ("gusto semanal", "asado"), {"entraña": 200, "tomate": 1, "pimiento rojo": 120, "cebolla": 80}, "Dorar la entraña fuerte y servir con ensalada criolla de tomate, pimiento y cebolla."),
+        Meal("Asado al horno con papa, zanahoria y cebolla", "asado", ("gusto semanal", "asado"), {"asado": 230, "papa": 180, "zanahoria": 120, "cebolla": 100}, "Cocinar el asado lento y sumar papa, zanahoria y cebolla al horno."),
         Meal("Bife de costilla con papas air fryer", "bife de costilla", ("gusto semanal", "asado"), {"bife de costilla": 230, "papas tipo McCain para air fryer": 180, "lechuga": 80, "tomate": 1}, "Cocinar el bife a la plancha o parrilla y acompañar con papas air fryer."),
         Meal("Hamburguesas Paty con papas al horno", "hamburguesas Paty", ("gusto semanal", "chatarra moderada"), {"hamburguesas Paty": 2, "pan de hamburguesa": 1, "papa": 250, "lechuga": 50, "tomate": 1}, "Cocinar hamburguesas Paty y hornear las papas."),
-        Meal("Milanesa de pechuga al horno con puré", "pechuga de pollo milanesa", ("gusto semanal", "milanesa"), {"pechuga de pollo para milanesa": 180, "pan rallado": 40, "huevo": 0.5, "papa": 250, "verduras mixtas": 150}, "Hornear la milanesa y acompañar con puré y verduras."),
+        Meal("Milanesa de pechuga al horno con puré y ensalada de zanahoria", "pechuga de pollo milanesa", ("gusto semanal", "milanesa"), {"pechuga de pollo para milanesa": 180, "pan rallado": 40, "huevo": 0.5, "papa": 250, "zanahoria": 100}, "Hornear la milanesa y acompañar con puré y zanahoria rallada."),
         Meal("Milanesa de nalga con papas air fryer", "nalga milanesa", ("gusto semanal", "milanesa", "chatarra moderada"), {"nalga para milanesa": 180, "pan rallado": 40, "huevo": 0.5, "papas tipo McCain para air fryer": 180}, "Hornear la milanesa y hacer las papas en air fryer."),
-        Meal("Tarta de pollo y verduras", "pollo desmenuzado", ("proteico",), {"pollo desmenuzado": 160, "tapa de tarta": 0.5, "verduras mixtas": 250}, "Rellenar con pollo y verduras, hornear."),
+        Meal("Tarta de pollo, espinaca y cebolla", "pollo desmenuzado", ("proteico",), {"pollo desmenuzado": 160, "tapa de tarta": 0.5, "espinaca": 120, "cebolla": 80}, "Rellenar con pollo, espinaca y cebolla; hornear."),
         Meal("Pastas con salsa bolognesa magra", "nalga picada", ("gusto semanal",), {"fideos": 90, "nalga picada": 170, "tomate": 1}, "Preparar salsa rápida y mezclar con la pasta."),
-        Meal("Pizza casera con muzzarella y verduras", "muzzarella", ("gusto semanal", "chatarra moderada"), {"prepizza": 1, "muzzarella": 120, "verduras mixtas": 180}, "Armar pizza casera y sumar verduras arriba o al costado."),
+        Meal("Pizza casera con muzzarella, tomate y pimiento", "muzzarella", ("gusto semanal", "chatarra moderada"), {"prepizza": 1, "muzzarella": 120, "tomate": 1, "pimiento rojo": 80}, "Armar pizza casera con tomate y pimiento arriba o al costado."),
         Meal("Empanadas de carne al horno con ensalada", "cuadrada", ("gusto semanal", "chatarra moderada"), {"tapas de empanada": 4, "cuadrada": 170, "lechuga": 80, "tomate": 1}, "Preparar relleno magro, hornear y acompañar con ensalada."),
-        Meal("Lomito al plato con papas air fryer", "lomo", ("gusto semanal", "chatarra moderada"), {"lomo": 180, "papas tipo McCain para air fryer": 180, "huevo": 1, "verduras mixtas": 150}, "Cocinar el lomo a la plancha y las papas en air fryer."),
+        Meal("Lomito al plato con papas air fryer y ensalada de tomate", "lomo", ("gusto semanal", "chatarra moderada"), {"lomo": 180, "papas tipo McCain para air fryer": 180, "huevo": 1, "tomate": 1, "lechuga": 60}, "Cocinar el lomo a la plancha, las papas en air fryer y sumar tomate con lechuga."),
+        Meal("Risotto falso de calabaza y queso", "queso cremoso", ("nuevo", "gusto semanal"), {"arroz": 80, "zapallo": 220, "queso cremoso": 80, "queso rallado": 20}, "Cocinar arroz cremoso con calabaza, terminar con queso y servir caliente."),
+        Meal("Pollo estilo mediterráneo con cous cous, tomate y pepino", "suprema de pollo", ("nuevo", "proteico"), {"suprema de pollo": 180, "cous cous": 70, "tomate": 1, "pepino": 100, "limon": 0.5}, "Dorar pollo, hidratar cous cous y servir con tomate, pepino y limón."),
         Meal("Delivery libre de la semana", "delivery", ("delivery", "gusto semanal"), {}, "Elegir delivery para la cena y retomar el plan al día siguiente."),
     ],
     "colación": [
@@ -94,13 +97,14 @@ def generate_week(
     conditions: dict[str, Any],
     offers: list[dict[str, str | None]],
 ) -> tuple[list[dict[str, Any]], dict[str, float]]:
-    people = int(profile.get("personas") or 1)
+    people = int(profile.get("personas") or 2)
     avoid = _words(f"{conditions.get('restricciones', '')} {conditions.get('evitar', '')}")
     avoid -= {"lactosa", "menos", "mejor", "cuanto", "intolerancia"}
     preferred = _words(f"{conditions.get('preferencias', '')} {profile.get('objetivo', '')}")
     rules = _words(f"{conditions.get('reglas', '')} {conditions.get('estilo', '')}")
     offer_words = _words(" ".join(offer["item"] or "" for offer in offers))
     delivery_day = _stable_delivery_day(profile, conditions, start)
+    discovery_day = _stable_discovery_day(start, delivery_day)
 
     plan: list[dict[str, Any]] = []
     shopping: defaultdict[str, float] = defaultdict(float)
@@ -124,6 +128,8 @@ def generate_week(
                 forced_tag = "milanesa"
             elif slot == "cena" and day_index >= 5:
                 forced_tag = "gusto semanal"
+            elif slot in {"almuerzo", "cena"} and day_index == discovery_day:
+                forced_tag = "nuevo"
             protein_scope = _protein_limited_slot(slot, meal_type)
             meal = _pick_meal(
                 MEALS[meal_type],
@@ -147,6 +153,7 @@ def generate_week(
                 "prep": meal.prep,
                 "proteina": meal.protein,
                 "ingredientes": meal.ingredients,
+                "porciones": people,
             }
             for ingredient, qty in meal.ingredients.items():
                 shopping[ingredient] += qty * people
@@ -316,6 +323,16 @@ def _milanesa_days(delivery_day: int) -> set[int]:
         if len(selected) == 2:
             break
     return set(selected)
+
+
+def _stable_discovery_day(start: date, delivery_day: int) -> int:
+    preferred_days = [2, 3, 4, 1, 5, 0, 6]
+    week_offset = start.isocalendar().week % len(preferred_days)
+    ordered = preferred_days[week_offset:] + preferred_days[:week_offset]
+    for day in ordered:
+        if day != delivery_day:
+            return day
+    return 3
 
 
 def _protein_limited_slot(slot: str, meal_type: str) -> bool:

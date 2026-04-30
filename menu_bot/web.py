@@ -51,6 +51,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Menu Bot", lifespan=lifespan)
 
+CHEF_STYLES = {
+    "paulina cocina": "Paulina Cocina: práctico, casero, rendidor y sin complicarla.",
+    "narda lepes": "Narda Lepes: verduras con más intención, frescura, acidez y buenos condimentos.",
+    "germán martitegui": "Germán Martitegui: plato prolijo, buen punto de cocción y sabores más definidos.",
+    "german martitegui": "Germán Martitegui: plato prolijo, buen punto de cocción y sabores más definidos.",
+    "donato de santis": "Donato De Santis: toque italiano, pastas cuidadas, salsa simple y buen queso.",
+    "petersen": "Los Petersen: carnes bien tratadas, buen dorado, reposo y guarniciones clásicas.",
+}
+
 
 @app.get("/", response_class=HTMLResponse)
 def home() -> str:
@@ -58,9 +67,10 @@ def home() -> str:
     today = _today()
     weekly = _get_or_create(chat_id, today)
     today_plan = weekly["plan"][today.weekday()]
+    user = DB.get_user(chat_id)
     preferences = DB.get_product_preferences(chat_id)
     shopping = format_shopping_list(weekly["shopping_list"], preferences)
-    return _page(today_plan, weekly["plan"], shopping)
+    return _page(today_plan, weekly["plan"], shopping, user["conditions"])
 
 
 @app.get("/api/menu")
@@ -106,9 +116,10 @@ def _today() -> date:
     return datetime.now(TZ if isinstance(TZ, ZoneInfo) else ZoneInfo("America/Argentina/Buenos_Aires")).date()
 
 
-def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str) -> str:
+def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str, conditions: dict[str, Any]) -> str:
     meals = today_plan["comidas"]
-    recipes = [_recipe_for(slot, meals[slot]) for slot in SLOTS]
+    chef_preferences = _chef_preferences(conditions)
+    recipes = [_recipe_for(slot, meals[slot], chef_preferences) for slot in SLOTS]
     meal_cards = "\n".join(
         f"""
         <article class="meal">
@@ -481,14 +492,15 @@ def _short_description(meal: dict[str, Any]) -> str:
     return "Ingredientes listos y preparación completa en la receta."
 
 
-def _recipe_for(slot: str, meal: dict[str, Any]) -> dict[str, Any]:
+def _recipe_for(slot: str, meal: dict[str, Any], chef_preferences: list[str]) -> dict[str, Any]:
     ingredients = meal.get("ingredientes") or _ingredients_for_name(meal["nombre"])
+    style = _style_for_recipe(meal["nombre"], ingredients, chef_preferences)
     return {
         "slot": slot.title(),
         "name": meal["nombre"],
         "ingredients": [_format_ingredient(name, qty) for name, qty in ingredients.items()],
-        "steps": _recipe_steps(meal["nombre"], meal["prep"], ingredients),
-        "tip": _recipe_tip(meal["nombre"], ingredients),
+        "steps": _recipe_steps(meal["nombre"], meal["prep"], ingredients, style),
+        "tip": _recipe_tip(meal["nombre"], ingredients, style),
     }
 
 
@@ -511,16 +523,17 @@ def _format_ingredient(name: str, qty: Any) -> str:
     return f"{name}: {qty}"
 
 
-def _recipe_steps(name: str, prep: str, ingredients: dict[str, Any]) -> list[str]:
+def _recipe_steps(name: str, prep: str, ingredients: dict[str, Any], style: str | None = None) -> list[str]:
     lowered = name.lower()
+    prefix = [f"Estilo de inspiración: {style}"] if style else []
     if "delivery" in lowered:
-        return [
+        return prefix + [
             "Elegir el delivery de la noche sin intentar compensar salteando comidas.",
             "Priorizar una porción razonable y, si se puede, sumar bebida sin azúcar o agua.",
             "Guardar sobrantes solo si realmente sirven para otro día; si no, cerrar la comida y seguir el plan mañana.",
         ]
     if "café" in lowered or "cafe" in lowered or "tostadas" in lowered:
-        return [
+        return prefix + [
             "Preparar la infusión: café, té o mate cocido. Si lleva leche, calentar leche zero lactosa sin hervirla.",
             "Tostar el pan hasta que quede firme, no quemado, para que soporte bien el topping.",
             "Preparar el topping indicado: pisar palta, revolver huevos, cortar tomate o medir una porción chica de dulce/mermelada.",
@@ -528,7 +541,7 @@ def _recipe_steps(name: str, prep: str, ingredients: dict[str, Any]) -> list[str
             "Servir con la infusión caliente y dejar la fruta o extra dulce solo si ese día quedó hambre real.",
         ]
     if "milanesa" in lowered:
-        return [
+        return prefix + [
             "Secar la carne o pollo con papel de cocina para que el rebozado se adhiera mejor.",
             "Batir huevo con sal, pimienta y, si tienen, un toque de mostaza o limón.",
             "Pasar cada pieza por huevo y después por rebozador Preferido o pan rallado, presionando bien.",
@@ -537,7 +550,7 @@ def _recipe_steps(name: str, prep: str, ingredients: dict[str, Any]) -> list[str
             "Preparar la guarnición mientras se cocina la milanesa y servir con ensalada o papa según el menú.",
         ]
     if "hamburguesas paty" in lowered:
-        return [
+        return prefix + [
             "Calentar una plancha o sartén amplia a fuego medio-alto sin exceso de aceite.",
             "Cocinar las hamburguesas Paty de ambos lados hasta que estén bien doradas y calientes en el centro.",
             "Si el menú lleva papa, cocinarla en horno o air fryer mientras se hacen las hamburguesas.",
@@ -545,7 +558,7 @@ def _recipe_steps(name: str, prep: str, ingredients: dict[str, Any]) -> list[str
             "Servir al plato o en pan, según el menú, cuidando que la guarnición de verduras quede presente.",
         ]
     if "fideos" in lowered or "pastas" in lowered:
-        return [
+        return prefix + [
             "Poner agua a hervir con sal y cocinar los fideos hasta que estén al dente.",
             "Mientras tanto preparar la proteína o vegetales en una sartén amplia.",
             "Reservar un poco de agua de cocción antes de colar la pasta.",
@@ -553,7 +566,7 @@ def _recipe_steps(name: str, prep: str, ingredients: dict[str, Any]) -> list[str
             "Servir en porción medida y completar con ensalada si el plato quedó corto de verduras.",
         ]
     if "arroz" in lowered or "bowl" in lowered:
-        return [
+        return prefix + [
             "Enjuagar el arroz si hace falta y cocinarlo con agua hasta que quede tierno.",
             "Cortar verduras y proteína en piezas parejas para que se cocinen al mismo tiempo.",
             "Dorar la proteína primero y retirarla si la sartén queda chica.",
@@ -561,14 +574,14 @@ def _recipe_steps(name: str, prep: str, ingredients: dict[str, Any]) -> list[str
             "Armar el bowl con arroz abajo, proteína y verduras arriba; terminar con limón o condimento simple.",
         ]
     if "ensalada" in lowered or "atún" in lowered or "atun" in lowered:
-        return [
+        return prefix + [
             "Lavar y escurrir bien las verduras para que la ensalada no quede aguada.",
             "Preparar la proteína: abrir atún, hervir huevo o cocinar la carne indicada.",
             "Cortar vegetales en tamaños fáciles de comer y mezclar en un bowl grande.",
             "Condimentar al final con aceite medido, limón o vinagre, sal y pimienta.",
             "Servir enseguida; si sobra, guardar sin condimentar para que aguante mejor.",
         ]
-    return [
+    return prefix + [
         "Separar todos los ingredientes antes de empezar para no cortar la cocción a mitad de camino.",
         prep,
         "Cocinar primero la proteína o base principal y después sumar verduras o guarnición.",
@@ -577,8 +590,10 @@ def _recipe_steps(name: str, prep: str, ingredients: dict[str, Any]) -> list[str
     ]
 
 
-def _recipe_tip(name: str, ingredients: dict[str, Any]) -> str:
+def _recipe_tip(name: str, ingredients: dict[str, Any], style: str | None = None) -> str:
     lowered = name.lower()
+    if style and "Petersen" in style:
+        return "Tip Petersen: secar bien la carne, dorar fuerte, salar con criterio y dejar reposar antes de cortar."
     if "desayuno" in lowered or "café" in lowered or "cafe" in lowered:
         return "Usar leche deslactosada y variar toppings durante la semana para no aburrirse."
     if "milanesa" in lowered:
@@ -590,3 +605,45 @@ def _recipe_tip(name: str, ingredients: dict[str, Any]) -> str:
     if "dannette" in lowered or "cindor" in lowered:
         return "Elegir el postre que esté en oferta y mantenerlo como gusto puntual."
     return "Si falta un ingrediente, reemplazar por uno parecido sin cambiar toda la comida."
+
+
+def _chef_preferences(conditions: dict[str, Any]) -> list[str]:
+    raw = f"{conditions.get('chefs', '')} {conditions.get('reglas', '')} {conditions.get('estilo', '')}"
+    normalized = raw.lower()
+    return [key for key in CHEF_STYLES if key in normalized]
+
+
+def _style_for_recipe(name: str, ingredients: dict[str, Any], chef_preferences: list[str]) -> str | None:
+    lowered = name.lower()
+    ingredient_text = " ".join(ingredients).lower()
+    if _is_meat_recipe(lowered, ingredient_text) and "petersen" in chef_preferences:
+        return CHEF_STYLES["petersen"]
+    if ("fideos" in lowered or "pastas" in lowered or "pizza" in lowered) and "donato de santis" in chef_preferences:
+        return CHEF_STYLES["donato de santis"]
+    if ("verduras" in lowered or "ensalada" in lowered) and "narda lepes" in chef_preferences:
+        return CHEF_STYLES["narda lepes"]
+    if ("milanesa" in lowered or "hamburguesas" in lowered or "tostadas" in lowered) and "paulina cocina" in chef_preferences:
+        return CHEF_STYLES["paulina cocina"]
+    for key in chef_preferences:
+        return CHEF_STYLES[key]
+    return None
+
+
+def _is_meat_recipe(name: str, ingredients: str) -> bool:
+    meat_words = (
+        "vacio",
+        "vacío",
+        "entraña",
+        "asado",
+        "bife",
+        "costilla",
+        "lomo",
+        "peceto",
+        "cuadril",
+        "nalga",
+        "roast beef",
+        "hamburguesas",
+        "carne",
+    )
+    haystack = f"{name} {ingredients}"
+    return any(word in haystack for word in meat_words)

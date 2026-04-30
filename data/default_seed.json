@@ -12,8 +12,9 @@
     "restricciones": "intolerancia al kiwi; cuanto menos lactosa mejor",
     "evitar": "kiwi cerdo pescado",
     "preferencias": "carne pollo atun en conserva fideos arroz verduras frutas lacteos bajos en lactosa milanesas papas air fryer desayunos infusion cafe con leche tostadas toppings huevos revueltos hamburguesas Paty vacio entraña asado bife de costilla limpieza higiene",
-    "reglas": "proteina principal no repetir mas de una vez por semana cortes distintos pechuga una vez nalga una vez atun una sola comida por semana milanesas minimo dos veces por semana pechuga de pollo o nalga contemplar compra supermercado arroz maximo una vez por semana fideos maximo dos veces por semana papas tipo mcain air fryer delivery una cena random por semana postre una vez por semana dannette copa cindor segun oferta mediodia hasta 40 minutos fines de semana gusto semanal chatarra moderada saludable variado rico aprovechar ofertas supermercado desayunos principalmente infusion cafe con leche zero lactosa tostadas con toppings variados o huevos revueltos usar hamburguesas Paty en lugar de carne picada magra para menu y compra semanal eliminar colacion dos mantener una sola colacion entre desayuno y almuerzo pescado poco y nada agregar esporadicamente vacio entraña asado bife de costilla compra semanal itera limpieza higiene personal",
-    "estilo": "Argentina Mar del Plata bajar grasa saludable variado rico"
+    "reglas": "proteina principal no repetir mas de una vez por semana cortes distintos pechuga una vez nalga una vez atun una sola comida por semana milanesas minimo dos veces por semana pechuga de pollo o nalga contemplar compra supermercado arroz maximo una vez por semana fideos maximo dos veces por semana papas tipo mcain air fryer delivery una cena random por semana postre una vez por semana dannette copa cindor segun oferta mediodia hasta 40 minutos fines de semana gusto semanal chatarra moderada saludable variado rico aprovechar ofertas supermercado desayunos principalmente infusion cafe con leche zero lactosa tostadas con toppings variados o huevos revueltos usar hamburguesas Paty en lugar de carne picada magra para menu y compra semanal eliminar colacion dos mantener una sola colacion entre desayuno y almuerzo pescado poco y nada agregar esporadicamente vacio entraña asado bife de costilla compra semanal itera limpieza higiene personal porciones siempre para 2 personas chefs inspiracion general paulina cocina narda lepes german martitegui donato de santis petersen conocer platos nuevos ingredientes nuevos entran en compra semanal ensaladas especificas con ingredientes concretos",
+    "estilo": "Argentina Mar del Plata bajar grasa saludable variado rico",
+    "chefs": "Paulina Cocina, Narda Lepes, Germán Martitegui, Donato De Santis, Petersen"
   },
   "product_preferences": [
     {
@@ -23,7 +24,7 @@
       "package_size": "1L",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "agua",
@@ -32,7 +33,7 @@
       "package_size": "6.2L",
       "category": "bebidas",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "agua sin gas",
@@ -41,7 +42,7 @@
       "package_size": "6.2L",
       "category": "bebidas",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "alcohol",
@@ -50,7 +51,7 @@
       "package_size": "500ml",
       "category": "higiene",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "algodon",
@@ -59,7 +60,7 @@
       "package_size": "100g",
       "category": "higiene",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "almidon de maiz",
@@ -68,7 +69,7 @@
       "package_size": "500g",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "aromatizador",
@@ -77,7 +78,7 @@
       "package_size": "175cc",
       "category": "limpieza",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "arroz",
@@ -86,7 +87,7 @@
       "package_size": "500g",
       "category": "almacen",
       "notes": "integral",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "asado",
@@ -95,7 +96,7 @@
       "package_size": "kg",
       "category": "carniceria",
       "notes": "corte ocasional",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "azucar",
@@ -104,7 +105,7 @@
       "package_size": "1kg",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "banana",
@@ -113,7 +114,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "batatas snack",
@@ -122,7 +123,7 @@
       "package_size": "130g",
       "category": "snacks",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "bife de costilla",
@@ -131,7 +132,7 @@
       "package_size": "kg",
       "category": "carniceria",
       "notes": "corte ocasional",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "bizcochuelo",
@@ -140,7 +141,7 @@
       "package_size": "540g",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "cafe",
@@ -149,7 +150,7 @@
       "package_size": null,
       "category": "almacen",
       "notes": "desayunos con infusion",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "café",
@@ -158,6 +159,15 @@
       "package_size": null,
       "category": "almacen",
       "notes": "desayunos con infusion",
+      "times_seen": 2
+    },
+    {
+      "ingredient": "cebolla",
+      "preferred_product": "Cebolla por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
       "times_seen": 1
     },
     {
@@ -167,7 +177,7 @@
       "package_size": "473cc",
       "category": "bebidas",
       "notes": "ocasional",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "chizitos",
@@ -176,7 +186,7 @@
       "package_size": "43g",
       "category": "snacks",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "choclo",
@@ -185,7 +195,7 @@
       "package_size": "unidad",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "coco rallado",
@@ -194,6 +204,15 @@
       "package_size": "50g",
       "category": "almacen",
       "notes": null,
+      "times_seen": 2
+    },
+    {
+      "ingredient": "cous cous",
+      "preferred_product": "Cous cous en caja o paquete, elegir marca disponible",
+      "brand": null,
+      "package_size": "paquete",
+      "category": "almacen",
+      "notes": "ingrediente nuevo ocasional",
       "times_seen": 1
     },
     {
@@ -203,7 +222,7 @@
       "package_size": "200ml",
       "category": "lacteos",
       "notes": "zero lactosa cuando se pueda",
-      "times_seen": 2
+      "times_seen": 3
     },
     {
       "ingredient": "crema zero lactosa",
@@ -212,7 +231,7 @@
       "package_size": "200ml",
       "category": "lacteos",
       "notes": "preferir zero lactosa",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "danette",
@@ -221,7 +240,7 @@
       "package_size": "pack x4 / 100g",
       "category": "postres",
       "notes": "chocolate, dulce de leche, flan vainilla",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "dannette o copa cindor",
@@ -230,7 +249,7 @@
       "package_size": "pack x4 o unidad",
       "category": "postres",
       "notes": "dulce de leche, vainilla flan, chocolate, chocolate con crema",
-      "times_seen": 2
+      "times_seen": 3
     },
     {
       "ingredient": "desodorante hombre",
@@ -239,7 +258,7 @@
       "package_size": "50ml",
       "category": "higiene",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "desodorante mujer",
@@ -248,7 +267,7 @@
       "package_size": "50ml",
       "category": "higiene",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "detergente",
@@ -257,7 +276,7 @@
       "package_size": "500ml",
       "category": "limpieza",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "dulce de leche",
@@ -266,7 +285,7 @@
       "package_size": "400g",
       "category": "lacteos",
       "notes": "clasico y repostero",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "dulce de leche repostero",
@@ -275,7 +294,7 @@
       "package_size": "400g",
       "category": "lacteos",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "entraña",
@@ -284,7 +303,7 @@
       "package_size": "kg",
       "category": "carniceria",
       "notes": "corte ocasional",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "fideos",
@@ -293,7 +312,7 @@
       "package_size": "500g",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "filtro de cafe",
@@ -302,7 +321,7 @@
       "package_size": "30 unidades",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "galletitas de agua",
@@ -311,7 +330,7 @@
       "package_size": "300g",
       "category": "galletitas",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "galletitas dulces",
@@ -320,7 +339,7 @@
       "package_size": "119-219g",
       "category": "galletitas",
       "notes": "gusto ocasional",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "gaseosa cola",
@@ -329,7 +348,7 @@
       "package_size": "2.25L",
       "category": "bebidas",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "gaseosa lima limon",
@@ -338,7 +357,7 @@
       "package_size": "2.25L",
       "category": "bebidas",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "gaseosa pomelo",
@@ -347,7 +366,7 @@
       "package_size": "1.5L",
       "category": "bebidas",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "gatorade",
@@ -356,7 +375,7 @@
       "package_size": "750cc",
       "category": "bebidas",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "hamburguesa",
@@ -365,7 +384,7 @@
       "package_size": "4 unidades / 320g",
       "category": "congelados",
       "notes": "gusto semanal",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "hamburguesas",
@@ -374,7 +393,7 @@
       "package_size": "pack",
       "category": "congelados",
       "notes": "preferir Paty sobre carne picada magra",
-      "times_seen": 2
+      "times_seen": 3
     },
     {
       "ingredient": "hamburguesas paty",
@@ -383,7 +402,7 @@
       "package_size": "pack",
       "category": "congelados",
       "notes": "preferir para hamburguesas de la semana",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "harina leudante",
@@ -392,7 +411,7 @@
       "package_size": "1kg",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "huevo",
@@ -401,7 +420,7 @@
       "package_size": "30 unidades",
       "category": "frescos",
       "notes": null,
-      "times_seen": 2
+      "times_seen": 3
     },
     {
       "ingredient": "isotonico",
@@ -410,7 +429,7 @@
       "package_size": "750cc",
       "category": "bebidas",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "jabon en pan",
@@ -419,7 +438,7 @@
       "package_size": "200g",
       "category": "limpieza",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "jamon cocido",
@@ -428,7 +447,7 @@
       "package_size": "kg",
       "category": "fiambres",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "ketchup",
@@ -437,7 +456,7 @@
       "package_size": "250g",
       "category": "aderezos",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "leche",
@@ -446,7 +465,7 @@
       "package_size": "1L",
       "category": "lacteos",
       "notes": "preferir sin lactosa",
-      "times_seen": 2
+      "times_seen": 3
     },
     {
       "ingredient": "leche zero lactosa",
@@ -455,7 +474,7 @@
       "package_size": "1L",
       "category": "lacteos",
       "notes": "preferencia fuerte por sin lactosa",
-      "times_seen": 2
+      "times_seen": 3
     },
     {
       "ingredient": "lechuga",
@@ -464,7 +483,7 @@
       "package_size": "unidad",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "limon",
@@ -473,7 +492,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "limpiavidrios",
@@ -482,7 +501,7 @@
       "package_size": "900ml",
       "category": "limpieza",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "maizena",
@@ -491,7 +510,7 @@
       "package_size": "500g",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "manteca",
@@ -500,7 +519,7 @@
       "package_size": "200g",
       "category": "lacteos",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "manzana roja",
@@ -509,7 +528,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "manzana verde",
@@ -518,7 +537,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "mayonesa",
@@ -527,7 +546,7 @@
       "package_size": "475g",
       "category": "aderezos",
       "notes": "compra frecuente",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "mermelada",
@@ -536,7 +555,7 @@
       "package_size": "frasco",
       "category": "almacen",
       "notes": "topping tostadas",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "nachos",
@@ -545,7 +564,7 @@
       "package_size": "40g",
       "category": "snacks",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "naranja",
@@ -554,7 +573,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "palta",
@@ -563,7 +582,7 @@
       "package_size": "unidad",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "pan de hamburguesa",
@@ -572,7 +591,7 @@
       "package_size": "pack",
       "category": "panificados",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "pan de molde",
@@ -581,7 +600,7 @@
       "package_size": "500g",
       "category": "panificados",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "pan integral",
@@ -590,7 +609,7 @@
       "package_size": "500g",
       "category": "panificados",
       "notes": "usan pan blanco masa madre",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "pan rallado",
@@ -599,7 +618,7 @@
       "package_size": "500g",
       "category": "almacen",
       "notes": "usar para milanesas",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "pano multiuso",
@@ -608,7 +627,7 @@
       "package_size": "3 unidades",
       "category": "limpieza",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "papa",
@@ -617,7 +636,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "papa negra",
@@ -626,7 +645,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "papas fritas snack",
@@ -635,7 +654,7 @@
       "package_size": "134-150g",
       "category": "snacks",
       "notes": null,
-      "times_seen": 2
+      "times_seen": 3
     },
     {
       "ingredient": "papas tipo mccain para air fryer",
@@ -644,7 +663,7 @@
       "package_size": "1400g",
       "category": "congelados",
       "notes": "air fryer",
-      "times_seen": 4
+      "times_seen": 5
     },
     {
       "ingredient": "papel higienico",
@@ -653,7 +672,7 @@
       "package_size": "4 unidades",
       "category": "limpieza",
       "notes": "ambas marcas aparecen",
-      "times_seen": 2
+      "times_seen": 3
     },
     {
       "ingredient": "pasta dental",
@@ -661,6 +680,15 @@
       "brand": "Colgate",
       "package_size": "90g",
       "category": "higiene",
+      "notes": null,
+      "times_seen": 2
+    },
+    {
+      "ingredient": "pepino",
+      "preferred_product": "Pepino fresco por unidad o kg",
+      "brand": null,
+      "package_size": "unidad/kg",
+      "category": "verduleria",
       "notes": null,
       "times_seen": 1
     },
@@ -671,7 +699,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "pina",
@@ -680,7 +708,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "queso blanco light",
@@ -689,7 +717,7 @@
       "package_size": "290g",
       "category": "lacteos",
       "notes": "topping tostadas",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "queso cheddar",
@@ -698,7 +726,7 @@
       "package_size": "120g",
       "category": "lacteos",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "queso cremoso",
@@ -707,7 +735,7 @@
       "package_size": "kg",
       "category": "lacteos",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "queso en hebras",
@@ -716,7 +744,7 @@
       "package_size": "130g",
       "category": "lacteos",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "queso pategras",
@@ -725,7 +753,7 @@
       "package_size": "1kg aprox.",
       "category": "lacteos",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "queso rallado",
@@ -734,7 +762,7 @@
       "package_size": "130-150g",
       "category": "lacteos",
       "notes": null,
-      "times_seen": 2
+      "times_seen": 3
     },
     {
       "ingredient": "rebozador",
@@ -743,7 +771,7 @@
       "package_size": "500g",
       "category": "almacen",
       "notes": "para milanesas",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "rollo de cocina",
@@ -751,6 +779,24 @@
       "brand": "Sussex",
       "package_size": "3 unidades",
       "category": "limpieza",
+      "notes": null,
+      "times_seen": 2
+    },
+    {
+      "ingredient": "rucula",
+      "preferred_product": "Rucula fresca en paquete o atado",
+      "brand": null,
+      "package_size": "paquete/atado",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "rúcula",
+      "preferred_product": "Rucula fresca en paquete o atado",
+      "brand": null,
+      "package_size": "paquete/atado",
+      "category": "verduleria",
       "notes": null,
       "times_seen": 1
     },
@@ -761,7 +807,7 @@
       "package_size": "500g",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "sal gruesa",
@@ -770,7 +816,7 @@
       "package_size": "500g",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "salchichas",
@@ -779,7 +825,7 @@
       "package_size": "190g",
       "category": "fiambres",
       "notes": "consumo ocasional",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "separadores freezer",
@@ -787,6 +833,15 @@
       "brand": "Separata",
       "package_size": "100 unidades",
       "category": "cocina",
+      "notes": null,
+      "times_seen": 2
+    },
+    {
+      "ingredient": "suprema de pollo",
+      "preferred_product": "Suprema de pollo por kg, elegir oferta",
+      "brand": null,
+      "package_size": "kg",
+      "category": "carniceria",
       "notes": null,
       "times_seen": 1
     },
@@ -797,7 +852,7 @@
       "package_size": "22 unidades",
       "category": "panificados",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "tapas de empanada criollas",
@@ -806,7 +861,7 @@
       "package_size": "22 unidades",
       "category": "panificados",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "tomate",
@@ -815,7 +870,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": "tambien compran tomate perita en lata Salsati",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "tomate perita lata",
@@ -824,7 +879,7 @@
       "package_size": "400g",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "vacio",
@@ -833,7 +888,7 @@
       "package_size": "kg",
       "category": "carniceria",
       "notes": "corte ocasional",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "vacío",
@@ -842,7 +897,7 @@
       "package_size": "kg",
       "category": "carniceria",
       "notes": "corte ocasional",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "vino malbec",
@@ -851,7 +906,7 @@
       "package_size": "750ml",
       "category": "bebidas",
       "notes": "gusto ocasional",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "yerba",
@@ -860,7 +915,7 @@
       "package_size": "1kg",
       "category": "almacen",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "yogur",
@@ -869,7 +924,7 @@
       "package_size": "120g",
       "category": "lacteos",
       "notes": "frutilla o vainilla",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "yogur bajo lactosa",
@@ -878,7 +933,7 @@
       "package_size": "120g",
       "category": "lacteos",
       "notes": "priorizar menor lactosa",
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "zanahoria",
@@ -887,7 +942,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     },
     {
       "ingredient": "zapallo",
@@ -896,7 +951,7 @@
       "package_size": "kg",
       "category": "verduleria",
       "notes": null,
-      "times_seen": 1
+      "times_seen": 2
     }
   ]
 }
