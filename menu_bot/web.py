@@ -557,6 +557,16 @@ def _recipe_steps(name: str, prep: str, ingredients: dict[str, Any], style: str 
             "Lavar y cortar lechuga y tomate; condimentar con poca sal, limón o vinagre.",
             "Servir al plato o en pan, según el menú, cuidando que la guarnición de verduras quede presente.",
         ]
+    if _is_meat_recipe(lowered, " ".join(ingredients)):
+        return prefix + [
+            "Sacar la carne de la heladera unos minutos antes para que no vaya helada a la plancha, horno o parrilla.",
+            "Secar bien la superficie con papel de cocina; eso ayuda a lograr mejor dorado.",
+            "Salar con criterio justo antes de cocinar y usar fuego fuerte al principio para sellar.",
+            "Cocinar hasta el punto deseado, bajando el fuego si el corte necesita más tiempo.",
+            "Dejar reposar la carne 3 a 5 minutos antes de cortar para que conserve jugos.",
+            "Mientras reposa, preparar la guarnición o ensalada indicada con los vegetales concretos del plato.",
+            "Cortar, servir y terminar con limón, pimienta o un toque de aceite de oliva si corresponde.",
+        ]
     if "fideos" in lowered or "pastas" in lowered:
         return prefix + [
             "Poner agua a hervir con sal y cocinar los fideos hasta que estén al dente.",
