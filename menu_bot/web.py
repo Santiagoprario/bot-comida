@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi import Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from telegram.ext import Application
 
@@ -63,19 +64,22 @@ CHEF_STYLES = {
 
 
 @app.get("/", response_class=HTMLResponse)
-def home() -> str:
+def home(request: Request, pin: str | None = None) -> str:
+    _guard_web(request, pin)
     chat_id = _active_chat_id()
     today = _today()
     weekly = _get_or_create(chat_id, today)
     today_plan = weekly["plan"][today.weekday()]
     user = DB.get_user(chat_id)
     preferences = DB.get_product_preferences(chat_id)
-    shopping = format_shopping_list(weekly["shopping_list"], preferences)
+    pantry = DB.list_pantry_items(chat_id)
+    shopping = format_shopping_list(weekly["shopping_list"], preferences, pantry)
     return _page(today_plan, weekly["plan"], shopping, user["conditions"])
 
 
 @app.get("/api/menu")
-def api_menu() -> JSONResponse:
+def api_menu(request: Request, pin: str | None = None) -> JSONResponse:
+    _guard_web(request, pin)
     chat_id = _active_chat_id()
     today = _today()
     weekly = _get_or_create(chat_id, today)
@@ -86,6 +90,16 @@ def api_menu() -> JSONResponse:
             "shopping_list": weekly["shopping_list"],
         }
     )
+
+
+def _guard_web(request: Request, pin: str | None) -> None:
+    expected = os.getenv("DASHBOARD_PIN", "").strip()
+    if not expected:
+        return
+    header_pin = request.headers.get("x-dashboard-pin")
+    if pin == expected or header_pin == expected:
+        return
+    raise HTTPException(status_code=401, detail="PIN requerido")
 
 
 def _active_chat_id() -> int:

@@ -189,14 +189,26 @@ def format_week(plan: list[dict[str, Any]]) -> str:
     return "\n\n".join(chunks)
 
 
-def format_shopping_list(shopping: dict[str, float], preferences: dict[str, dict[str, Any]] | None = None) -> str:
+def format_shopping_list(
+    shopping: dict[str, float],
+    preferences: dict[str, dict[str, Any]] | None = None,
+    pantry: dict[str, float] | None = None,
+) -> str:
     lines = ["Compra semanal"]
+    pantry = pantry or {}
     for item, qty in shopping.items():
+        owned = pantry.get(item.lower(), 0)
+        remaining = max(qty - owned, 0)
+        if remaining == 0 and owned:
+            continue
         unit = "u" if qty < 20 else "g/ml aprox."
-        pretty_qty = int(qty) if qty == int(qty) else round(qty, 1)
+        pretty_qty = int(remaining) if remaining == int(remaining) else round(remaining, 1)
         preferred = _preferred_product_for(item, preferences or {})
         suffix = f" | sugerido: {preferred}" if preferred else ""
-        lines.append(f"- {item}: {pretty_qty} {unit}{suffix}")
+        pantry_note = f" | descuenta stock: {owned:g}" if owned else ""
+        lines.append(f"- {item}: {pretty_qty} {unit}{suffix}{pantry_note}")
+    if len(lines) == 1:
+        lines.append("- Sin compras pendientes según el stock cargado.")
     return "\n".join(lines)
 
 

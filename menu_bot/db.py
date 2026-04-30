@@ -66,6 +66,23 @@ class Database:
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY(chat_id, ingredient)
                 );
+
+                CREATE TABLE IF NOT EXISTS pantry_items (
+                    chat_id INTEGER NOT NULL,
+                    item TEXT NOT NULL,
+                    quantity REAL NOT NULL DEFAULT 1,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY(chat_id, item)
+                );
+
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    chat_id INTEGER NOT NULL,
+                    item TEXT NOT NULL,
+                    sentiment TEXT NOT NULL,
+                    note TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
                 """
             )
 
@@ -222,3 +239,37 @@ class Database:
                 (chat_id,),
             ).fetchall()
         return {row["ingredient"]: dict(row) for row in rows}
+
+    def upsert_pantry_item(self, chat_id: int, item: str, quantity: float = 1) -> None:
+        self.ensure_user(chat_id)
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO pantry_items(chat_id, item, quantity)
+                VALUES (?, ?, ?)
+                ON CONFLICT(chat_id, item) DO UPDATE SET
+                    quantity = excluded.quantity,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (chat_id, item.strip().lower(), quantity),
+            )
+
+    def list_pantry_items(self, chat_id: int) -> dict[str, float]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                "SELECT item, quantity FROM pantry_items WHERE chat_id = ? ORDER BY item",
+                (chat_id,),
+            ).fetchall()
+        return {row["item"]: float(row["quantity"]) for row in rows}
+
+    def clear_pantry(self, chat_id: int) -> None:
+        with self.connect() as conn:
+            conn.execute("DELETE FROM pantry_items WHERE chat_id = ?", (chat_id,))
+
+    def add_feedback(self, chat_id: int, item: str, sentiment: str, note: str | None = None) -> None:
+        self.ensure_user(chat_id)
+        with self.connect() as conn:
+            conn.execute(
+                "INSERT INTO feedback(chat_id, item, sentiment, note) VALUES (?, ?, ?, ?)",
+                (chat_id, item.strip().lower(), sentiment, note),
+            )

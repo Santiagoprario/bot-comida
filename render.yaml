@@ -14,6 +14,10 @@ services:
         value: "0"
       - key: SEED_PATH
         value: data/default_seed.json
+      - key: ALLOWED_CHAT_ID
+        sync: false
+      - key: DASHBOARD_PIN
+        sync: false
       - key: WEATHER_LATITUDE
         value: "-38.0055"
       - key: WEATHER_LONGITUDE

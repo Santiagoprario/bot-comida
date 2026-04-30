@@ -33,6 +33,7 @@ KEYBOARD = ReplyKeyboardMarkup(
         ["Menú semanal", "Compra"],
         ["Ver ofertas", "Mis marcas"],
         ["Hogar"],
+        ["Stock", "Cambiar hoy"],
         ["Ver perfil", "Ver reglas"],
         ["Ayuda"],
     ],
@@ -50,6 +51,8 @@ BUTTON_ACTIONS = {
     "ver ofertas": "ofertas",
     "mis marcas": "mis_marcas",
     "hogar": "hogar",
+    "stock": "stock",
+    "cambiar hoy": "cambiar_hoy",
     "ver perfil": "perfil",
     "ver reglas": "condiciones",
     "ayuda": "ayuda",
@@ -57,6 +60,8 @@ BUTTON_ACTIONS = {
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     chat_id = update.effective_chat.id
     DB.ensure_user(chat_id)
     await update.message.reply_text(
@@ -71,6 +76,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     await update.message.reply_text(
         "Comandos:\n"
         "/perfil objetivo=bajar grasa, personas=1, calorias=2200, presupuesto=50000\n"
@@ -80,6 +87,12 @@ async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/limpiar_ofertas\n"
         "/mis_marcas\n"
         "/hogar\n"
+        "/stock arroz=500, huevos=6\n"
+        "/mi_stock\n"
+        "/limpiar_stock\n"
+        "/favorito milanesas de nalga\n"
+        "/no_repetir pescado\n"
+        "/cambiar_hoy\n"
         "/generar_semana\n"
         "/menu_hoy\n"
         "/menu_semana\n"
@@ -89,6 +102,8 @@ async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     chat_id = update.effective_chat.id
     payload = _command_payload(update.message.text)
     if not payload:
@@ -107,6 +122,8 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def condiciones(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     chat_id = update.effective_chat.id
     payload = _command_payload(update.message.text)
     if not payload:
@@ -125,6 +142,8 @@ async def condiciones(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def oferta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     chat_id = update.effective_chat.id
     payload = _command_payload(update.message.text)
     if not payload:
@@ -136,6 +155,8 @@ async def oferta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def ofertas(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     rows = DB.list_offers(update.effective_chat.id)
     if not rows:
         await update.message.reply_text("Todavía no cargaste ofertas.", reply_markup=KEYBOARD)
@@ -148,11 +169,15 @@ async def ofertas(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def limpiar_ofertas(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     DB.clear_offers(update.effective_chat.id)
     await update.message.reply_text("Ofertas borradas.", reply_markup=KEYBOARD)
 
 
 async def generar_semana(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     chat_id = update.effective_chat.id
     plan, shopping, start = _build_and_save(chat_id, _today())
     await update.message.reply_text(
@@ -164,6 +189,8 @@ async def generar_semana(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def menu_hoy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     chat_id = update.effective_chat.id
     today = _today()
     weekly = _get_or_create(chat_id, today)
@@ -172,23 +199,32 @@ async def menu_hoy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def menu_semana(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     weekly = _get_or_create(update.effective_chat.id, _today())
     await update.message.reply_text(_split_if_needed(format_week(weekly["plan"])), reply_markup=KEYBOARD)
 
 
 async def compra(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     chat_id = update.effective_chat.id
     weekly = _get_or_create(chat_id, _today())
     preferences = DB.get_product_preferences(chat_id)
-    await update.message.reply_text(format_shopping_list(weekly["shopping_list"], preferences), reply_markup=KEYBOARD)
+    pantry = DB.list_pantry_items(chat_id)
+    await update.message.reply_text(format_shopping_list(weekly["shopping_list"], preferences, pantry), reply_markup=KEYBOARD)
 
 
 async def mis_marcas(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     preferences = DB.get_product_preferences(update.effective_chat.id)
     await update.message.reply_text(format_product_preferences(preferences), reply_markup=KEYBOARD)
 
 
 async def hogar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     await update.message.reply_text(
         f"{format_household_rotation()}\n\n"
         "Para cambiar esta rotación, decime acá qué producto querés agregar, sacar o cada cuánto comprarlo y lo dejo configurado.",
@@ -196,7 +232,90 @@ async def hogar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+async def stock(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    chat_id = update.effective_chat.id
+    payload = _command_payload(update.message.text)
+    if not payload:
+        await mi_stock(update, context)
+        return
+    values = parse_key_values(payload)
+    if not values:
+        await update.message.reply_text("Ejemplo: /stock arroz=500, huevo=6, leche zero lactosa=1", reply_markup=KEYBOARD)
+        return
+    for item, quantity in values.items():
+        try:
+            qty = float(quantity)
+        except (TypeError, ValueError):
+            qty = 1
+        DB.upsert_pantry_item(chat_id, item, qty)
+    await update.message.reply_text("Stock actualizado. La próxima /compra lo descuenta.", reply_markup=KEYBOARD)
+
+
+async def mi_stock(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    pantry = DB.list_pantry_items(update.effective_chat.id)
+    if not pantry:
+        await update.message.reply_text("No hay stock cargado.", reply_markup=KEYBOARD)
+        return
+    await update.message.reply_text(
+        "Stock en casa:\n" + "\n".join(f"- {item}: {qty:g}" for item, qty in pantry.items()),
+        reply_markup=KEYBOARD,
+    )
+
+
+async def limpiar_stock(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    DB.clear_pantry(update.effective_chat.id)
+    await update.message.reply_text("Stock borrado.", reply_markup=KEYBOARD)
+
+
+async def favorito(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    item = _command_payload(update.message.text)
+    if not item:
+        await update.message.reply_text("Ejemplo: /favorito milanesas de nalga", reply_markup=KEYBOARD)
+        return
+    DB.add_feedback(update.effective_chat.id, item, "like")
+    user = DB.get_user(update.effective_chat.id)
+    condiciones = user["conditions"]
+    condiciones["preferencias"] = f"{condiciones.get('preferencias', '')} {item}".strip()
+    DB.update_conditions(update.effective_chat.id, condiciones)
+    await update.message.reply_text("Guardado como favorito y sumado a preferencias.", reply_markup=KEYBOARD)
+
+
+async def no_repetir(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    item = _command_payload(update.message.text)
+    if not item:
+        await update.message.reply_text("Ejemplo: /no_repetir pescado", reply_markup=KEYBOARD)
+        return
+    DB.add_feedback(update.effective_chat.id, item, "dislike")
+    user = DB.get_user(update.effective_chat.id)
+    condiciones = user["conditions"]
+    condiciones["evitar"] = f"{condiciones.get('evitar', '')} {item}".strip()
+    DB.update_conditions(update.effective_chat.id, condiciones)
+    _clear_current_week(update.effective_chat.id)
+    await update.message.reply_text("Anotado para evitarlo y regenerar próximas comidas.", reply_markup=KEYBOARD)
+
+
+async def cambiar_hoy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    chat_id = update.effective_chat.id
+    _clear_current_week(chat_id)
+    weekly = _get_or_create(chat_id, _today())
+    await update.message.reply_text("Regeneré la semana. Menú de hoy:\n\n" + format_day(weekly["plan"][_today().weekday()]), reply_markup=KEYBOARD)
+
+
 async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
     text = (update.message.text or "").strip().lower()
     action = BUTTON_ACTIONS.get(text)
     if action == "menu_hoy":
@@ -213,6 +332,10 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await mis_marcas(update, context)
     elif action == "hogar":
         await hogar(update, context)
+    elif action == "stock":
+        await mi_stock(update, context)
+    elif action == "cambiar_hoy":
+        await cambiar_hoy(update, context)
     elif action == "perfil":
         await perfil(update, context)
     elif action == "condiciones":
@@ -243,6 +366,12 @@ def build_application(token: str) -> Application:
     app.add_handler(CommandHandler("ofertas", ofertas))
     app.add_handler(CommandHandler("mis_marcas", mis_marcas))
     app.add_handler(CommandHandler("hogar", hogar))
+    app.add_handler(CommandHandler("stock", stock))
+    app.add_handler(CommandHandler("mi_stock", mi_stock))
+    app.add_handler(CommandHandler("limpiar_stock", limpiar_stock))
+    app.add_handler(CommandHandler("favorito", favorito))
+    app.add_handler(CommandHandler("no_repetir", no_repetir))
+    app.add_handler(CommandHandler("cambiar_hoy", cambiar_hoy))
     app.add_handler(CommandHandler("limpiar_ofertas", limpiar_ofertas))
     app.add_handler(CommandHandler("generar_semana", generar_semana))
     app.add_handler(CommandHandler("menu_hoy", menu_hoy))
@@ -292,6 +421,24 @@ def _plan_needs_refresh(plan: list[dict]) -> bool:
 
 def _today() -> date:
     return datetime.now(TZ).date()
+
+
+async def _guard(update: Update) -> bool:
+    allowed = os.getenv("ALLOWED_CHAT_ID") or os.getenv("DEFAULT_CHAT_ID")
+    if not allowed:
+        return True
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    if str(chat_id) == str(allowed):
+        return True
+    if update.message:
+        await update.message.reply_text("No autorizado.")
+    return False
+
+
+def _clear_current_week(chat_id: int) -> None:
+    start = week_start_for(_today()).isoformat()
+    with DB.connect() as conn:
+        conn.execute("DELETE FROM weekly_plans WHERE chat_id = ? AND week_start = ?", (chat_id, start))
 
 
 def _command_payload(text: str) -> str:

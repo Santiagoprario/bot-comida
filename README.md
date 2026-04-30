@@ -60,6 +60,8 @@ El proyecto incluye `render.yaml`. En Render:
 ```env
 TELEGRAM_BOT_TOKEN=tu_token
 DEFAULT_CHAT_ID=tu_chat_id
+ALLOWED_CHAT_ID=tu_chat_id
+DASHBOARD_PIN=un_pin
 DB_PATH=/tmp/menu_bot.sqlite3
 TIMEZONE=America/Argentina/Buenos_Aires
 SEED_PATH=data/default_seed.json
@@ -93,6 +95,12 @@ pytest
 /menu_hoy
 /menu_semana
 /compra
+/stock arroz=500, huevo=6
+/mi_stock
+/limpiar_stock
+/favorito milanesas de nalga
+/no_repetir pescado
+/cambiar_hoy
 ```
 
 El bot también muestra un teclado persistente con botones para:
@@ -102,6 +110,10 @@ El bot también muestra un teclado persistente con botones para:
 - Menú semanal
 - Compra
 - Ver ofertas
+- Mis marcas
+- Hogar
+- Stock
+- Cambiar hoy
 - Ver perfil
 - Ver reglas
 - Ayuda
