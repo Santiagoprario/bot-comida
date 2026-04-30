@@ -1,0 +1,2 @@
+"""Telegram meal planner bot."""
+

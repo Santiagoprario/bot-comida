@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: menu-telegram-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn menu_bot.web:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: TIMEZONE
+        value: America/Argentina/Buenos_Aires
+      - key: DAILY_SEND_HOUR
+        value: "8"
+      - key: DAILY_SEND_MINUTE
+        value: "0"
+      - key: SEED_PATH
+        value: data/default_seed.json

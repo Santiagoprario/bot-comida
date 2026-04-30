@@ -1,0 +1,902 @@
+{
+  "profile": {
+    "pais": "Argentina",
+    "provincia": "Buenos Aires",
+    "ciudad": "Mar del Plata",
+    "personas": 2,
+    "integrantes": "hombre 35, mujer 34",
+    "objetivo": "bajar grasa",
+    "entrenamiento": "regular"
+  },
+  "conditions": {
+    "restricciones": "intolerancia al kiwi; cuanto menos lactosa mejor",
+    "evitar": "kiwi cerdo pescado",
+    "preferencias": "carne pollo atun en conserva fideos arroz verduras frutas lacteos bajos en lactosa milanesas papas air fryer desayunos infusion cafe con leche tostadas toppings huevos revueltos hamburguesas Paty vacio entraña asado bife de costilla limpieza higiene",
+    "reglas": "proteina principal no repetir mas de una vez por semana cortes distintos pechuga una vez nalga una vez atun una sola comida por semana milanesas minimo dos veces por semana pechuga de pollo o nalga contemplar compra supermercado arroz maximo una vez por semana fideos maximo dos veces por semana papas tipo mcain air fryer delivery una cena random por semana postre una vez por semana dannette copa cindor segun oferta mediodia hasta 40 minutos fines de semana gusto semanal chatarra moderada saludable variado rico aprovechar ofertas supermercado desayunos principalmente infusion cafe con leche zero lactosa tostadas con toppings variados o huevos revueltos usar hamburguesas Paty en lugar de carne picada magra para menu y compra semanal eliminar colacion dos mantener una sola colacion entre desayuno y almuerzo pescado poco y nada agregar esporadicamente vacio entraña asado bife de costilla compra semanal itera limpieza higiene personal",
+    "estilo": "Argentina Mar del Plata bajar grasa saludable variado rico"
+  },
+  "product_preferences": [
+    {
+      "ingredient": "aceite de oliva",
+      "preferred_product": "Aceite de Oliva Virgen Extra Oliovita 1L",
+      "brand": "Oliovita",
+      "package_size": "1L",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "agua",
+      "preferred_product": "Agua Villa del Sur Sin Gas 6.2L",
+      "brand": "Villa del Sur",
+      "package_size": "6.2L",
+      "category": "bebidas",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "agua sin gas",
+      "preferred_product": "Agua Villa del Sur Sin Gas 6.2L",
+      "brand": "Villa del Sur",
+      "package_size": "6.2L",
+      "category": "bebidas",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "alcohol",
+      "preferred_product": "Alcohol Fino Porta Puro 500ml",
+      "brand": "Porta",
+      "package_size": "500ml",
+      "category": "higiene",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "algodon",
+      "preferred_product": "Algodon Super Doncella 100g",
+      "brand": "Doncella",
+      "package_size": "100g",
+      "category": "higiene",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "almidon de maiz",
+      "preferred_product": "Almidon de Maiz Maizena Clasica Sin TACC 500g",
+      "brand": "Maizena",
+      "package_size": "500g",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "aromatizador",
+      "preferred_product": "Aromatizador Automatico Vainilla Glade Repuesto 175cc",
+      "brand": "Glade",
+      "package_size": "175cc",
+      "category": "limpieza",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "arroz",
+      "preferred_product": "Arroz Gallo Integral Seleccion 500g",
+      "brand": "Gallo",
+      "package_size": "500g",
+      "category": "almacen",
+      "notes": "integral",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "asado",
+      "preferred_product": "Asado por kg, comprar solo si hay buena oferta",
+      "brand": null,
+      "package_size": "kg",
+      "category": "carniceria",
+      "notes": "corte ocasional",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "azucar",
+      "preferred_product": "Azucar Ledesma Superior 1kg",
+      "brand": "Ledesma",
+      "package_size": "1kg",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "banana",
+      "preferred_product": "Banana Ecuador por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "batatas snack",
+      "preferred_product": "Batatas Quento Snacks 130g",
+      "brand": "Quento",
+      "package_size": "130g",
+      "category": "snacks",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "bife de costilla",
+      "preferred_product": "Bife de costilla por kg, comprar si hay oferta",
+      "brand": null,
+      "package_size": "kg",
+      "category": "carniceria",
+      "notes": "corte ocasional",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "bizcochuelo",
+      "preferred_product": "Bizcochuelo Exquisita Limon 540g",
+      "brand": "Exquisita",
+      "package_size": "540g",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "cafe",
+      "preferred_product": "Cafe para infusion habitual",
+      "brand": null,
+      "package_size": null,
+      "category": "almacen",
+      "notes": "desayunos con infusion",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "café",
+      "preferred_product": "Cafe para infusion habitual",
+      "brand": null,
+      "package_size": null,
+      "category": "almacen",
+      "notes": "desayunos con infusion",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "cerveza",
+      "preferred_product": "Cerveza Amstel Lager 473cc",
+      "brand": "Amstel",
+      "package_size": "473cc",
+      "category": "bebidas",
+      "notes": "ocasional",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "chizitos",
+      "preferred_product": "Cheetos Original 43g",
+      "brand": "Cheetos",
+      "package_size": "43g",
+      "category": "snacks",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "choclo",
+      "preferred_product": "Choclo por unidad",
+      "brand": null,
+      "package_size": "unidad",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "coco rallado",
+      "preferred_product": "Coco Rallado Alicante 50g",
+      "brand": "Alicante",
+      "package_size": "50g",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "crema",
+      "preferred_product": "Crema La Serenisima 200ml; preferir Zero Lactosa si esta disponible",
+      "brand": "La Serenisima",
+      "package_size": "200ml",
+      "category": "lacteos",
+      "notes": "zero lactosa cuando se pueda",
+      "times_seen": 2
+    },
+    {
+      "ingredient": "crema zero lactosa",
+      "preferred_product": "Crema para Batir Zero Lactosa La Serenisima 200ml",
+      "brand": "La Serenisima",
+      "package_size": "200ml",
+      "category": "lacteos",
+      "notes": "preferir zero lactosa",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "danette",
+      "preferred_product": "Danette pack x4 o unidad, elegir el que este en oferta",
+      "brand": "Danette",
+      "package_size": "pack x4 / 100g",
+      "category": "postres",
+      "notes": "chocolate, dulce de leche, flan vainilla",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "dannette o copa cindor",
+      "preferred_product": "Danette pack x4, elegir sabor/oferta; alternativa Copa Cindor",
+      "brand": "Danette / Cindor",
+      "package_size": "pack x4 o unidad",
+      "category": "postres",
+      "notes": "dulce de leche, vainilla flan, chocolate, chocolate con crema",
+      "times_seen": 2
+    },
+    {
+      "ingredient": "desodorante hombre",
+      "preferred_product": "Nivea Men Invisible B&W Roll On 50ml",
+      "brand": "Nivea Men",
+      "package_size": "50ml",
+      "category": "higiene",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "desodorante mujer",
+      "preferred_product": "Nivea Invisible Roll On 50ml",
+      "brand": "Nivea",
+      "package_size": "50ml",
+      "category": "higiene",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "detergente",
+      "preferred_product": "Detergente Ultra Limon Magistral 500ml",
+      "brand": "Magistral",
+      "package_size": "500ml",
+      "category": "limpieza",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "dulce de leche",
+      "preferred_product": "Dulce de Leche Clasico La Serenisima 400g",
+      "brand": "La Serenisima",
+      "package_size": "400g",
+      "category": "lacteos",
+      "notes": "clasico y repostero",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "dulce de leche repostero",
+      "preferred_product": "Dulce de Leche Vacalin Repostero 400g o La Serenisima Repostero 400g",
+      "brand": "Vacalin / La Serenisima",
+      "package_size": "400g",
+      "category": "lacteos",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "entraña",
+      "preferred_product": "Entraña por kg, comprar solo si hay buena oferta",
+      "brand": null,
+      "package_size": "kg",
+      "category": "carniceria",
+      "notes": "corte ocasional",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "fideos",
+      "preferred_product": "Fideos Matarazzo Tallarin N5 500g",
+      "brand": "Matarazzo",
+      "package_size": "500g",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "filtro de cafe",
+      "preferred_product": "Filtro de Cafe Papel N4 x30 Jumbo Home Care",
+      "brand": "Jumbo Home Care",
+      "package_size": "30 unidades",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "galletitas de agua",
+      "preferred_product": "Criollitas Originales 300g",
+      "brand": "Criollitas",
+      "package_size": "300g",
+      "category": "galletitas",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "galletitas dulces",
+      "preferred_product": "Pepitos 119g o Lincoln Clasicas Terrabusi 219g",
+      "brand": "Pepitos / Terrabusi",
+      "package_size": "119-219g",
+      "category": "galletitas",
+      "notes": "gusto ocasional",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "gaseosa cola",
+      "preferred_product": "Coca-Cola Sabor Original 2.25L",
+      "brand": "Coca-Cola",
+      "package_size": "2.25L",
+      "category": "bebidas",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "gaseosa lima limon",
+      "preferred_product": "Sprite Lima-limon 2.25L",
+      "brand": "Sprite",
+      "package_size": "2.25L",
+      "category": "bebidas",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "gaseosa pomelo",
+      "preferred_product": "Paso de los Toros Pomelo 1.5L",
+      "brand": "Paso de los Toros",
+      "package_size": "1.5L",
+      "category": "bebidas",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "gatorade",
+      "preferred_product": "Gatorade Manzana 750cc",
+      "brand": "Gatorade",
+      "package_size": "750cc",
+      "category": "bebidas",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "hamburguesa",
+      "preferred_product": "Hamburguesa Swift de Carne Vacuna x4 320g",
+      "brand": "Swift",
+      "package_size": "4 unidades / 320g",
+      "category": "congelados",
+      "notes": "gusto semanal",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "hamburguesas",
+      "preferred_product": "Hamburguesas Paty de carne, pack en oferta",
+      "brand": "Paty",
+      "package_size": "pack",
+      "category": "congelados",
+      "notes": "preferir Paty sobre carne picada magra",
+      "times_seen": 2
+    },
+    {
+      "ingredient": "hamburguesas paty",
+      "preferred_product": "Hamburguesas Paty de carne, pack en oferta",
+      "brand": "Paty",
+      "package_size": "pack",
+      "category": "congelados",
+      "notes": "preferir para hamburguesas de la semana",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "harina leudante",
+      "preferred_product": "Harina Leudante Blancaflor 1kg",
+      "brand": "Blancaflor",
+      "package_size": "1kg",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "huevo",
+      "preferred_product": "Huevos Blancos Maple 30 unidades Maxima o Carnave",
+      "brand": "Maxima / Carnave",
+      "package_size": "30 unidades",
+      "category": "frescos",
+      "notes": null,
+      "times_seen": 2
+    },
+    {
+      "ingredient": "isotonico",
+      "preferred_product": "Gatorade Manzana 750cc",
+      "brand": "Gatorade",
+      "package_size": "750cc",
+      "category": "bebidas",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "jabon en pan",
+      "preferred_product": "Jabon en Pan Argentino 200g",
+      "brand": "Argentino",
+      "package_size": "200g",
+      "category": "limpieza",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "jamon cocido",
+      "preferred_product": "Jamon Cocido Feteado Jumbo",
+      "brand": "Jumbo",
+      "package_size": "kg",
+      "category": "fiambres",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "ketchup",
+      "preferred_product": "Ketchup Hellmann's Regular Doypack 250g",
+      "brand": "Hellmann's",
+      "package_size": "250g",
+      "category": "aderezos",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "leche",
+      "preferred_product": "Leche La Serenisima Zerolact 1L o Las Tres Ninas 0% Lactosa 1L",
+      "brand": "La Serenisima / Las Tres Ninas",
+      "package_size": "1L",
+      "category": "lacteos",
+      "notes": "preferir sin lactosa",
+      "times_seen": 2
+    },
+    {
+      "ingredient": "leche zero lactosa",
+      "preferred_product": "Leche La Serenisima Zerolact 1L o Las Tres Ninas 0% Lactosa 1L",
+      "brand": "La Serenisima / Las Tres Ninas",
+      "package_size": "1L",
+      "category": "lacteos",
+      "notes": "preferencia fuerte por sin lactosa",
+      "times_seen": 2
+    },
+    {
+      "ingredient": "lechuga",
+      "preferred_product": "Lechuga Manteca Hidroponica por unidad",
+      "brand": null,
+      "package_size": "unidad",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "limon",
+      "preferred_product": "Limon por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "limpiavidrios",
+      "preferred_product": "Limpiador Vidrios Repuesto Mr. Musculo 900ml",
+      "brand": "Mr. Musculo",
+      "package_size": "900ml",
+      "category": "limpieza",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "maizena",
+      "preferred_product": "Almidon de Maiz Maizena Clasica Sin TACC 500g",
+      "brand": "Maizena",
+      "package_size": "500g",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "manteca",
+      "preferred_product": "Manteca Clasica La Serenisima 200g",
+      "brand": "La Serenisima",
+      "package_size": "200g",
+      "category": "lacteos",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "manzana roja",
+      "preferred_product": "Manzana Red Delicious por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "manzana verde",
+      "preferred_product": "Manzana Granny Smith por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "mayonesa",
+      "preferred_product": "Mayonesa Hellmann's Clasica Sin TACC Doypack 475g",
+      "brand": "Hellmann's",
+      "package_size": "475g",
+      "category": "aderezos",
+      "notes": "compra frecuente",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "mermelada",
+      "preferred_product": "Mermelada en oferta para tostadas",
+      "brand": null,
+      "package_size": "frasco",
+      "category": "almacen",
+      "notes": "topping tostadas",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "nachos",
+      "preferred_product": "Doritos Queso 40g",
+      "brand": "Doritos",
+      "package_size": "40g",
+      "category": "snacks",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "naranja",
+      "preferred_product": "Naranja para jugo por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "palta",
+      "preferred_product": "Palta Hass Elegida por unidad",
+      "brand": null,
+      "package_size": "unidad",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "pan de hamburguesa",
+      "preferred_product": "Pan de hamburguesa tipo artesano o el que este en oferta",
+      "brand": null,
+      "package_size": "pack",
+      "category": "panificados",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "pan de molde",
+      "preferred_product": "Pan de Molde Masa Madre Bimbo Artesano 500g",
+      "brand": "Bimbo Artesano",
+      "package_size": "500g",
+      "category": "panificados",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "pan integral",
+      "preferred_product": "Pan de Molde Masa Madre Bimbo Artesano 500g",
+      "brand": "Bimbo Artesano",
+      "package_size": "500g",
+      "category": "panificados",
+      "notes": "usan pan blanco masa madre",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "pan rallado",
+      "preferred_product": "Rebozador Fortificado Preferido 500g",
+      "brand": "Preferido",
+      "package_size": "500g",
+      "category": "almacen",
+      "notes": "usar para milanesas",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "pano multiuso",
+      "preferred_product": "Pano Multiuso Mortimer Multicolor x3",
+      "brand": "Mortimer",
+      "package_size": "3 unidades",
+      "category": "limpieza",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "papa",
+      "preferred_product": "Papa Negra por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "papa negra",
+      "preferred_product": "Papa Negra por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "papas fritas snack",
+      "preferred_product": "Papas Fritas Lays Clasicas 134g o Cuisine & Co Corte Americano 150g",
+      "brand": "Lay’s / Cuisine & Co",
+      "package_size": "134-150g",
+      "category": "snacks",
+      "notes": null,
+      "times_seen": 2
+    },
+    {
+      "ingredient": "papas tipo mccain para air fryer",
+      "preferred_product": "Papas Clasicas Corte Tradicional McCain 1400g",
+      "brand": "McCain",
+      "package_size": "1400g",
+      "category": "congelados",
+      "notes": "air fryer",
+      "times_seen": 4
+    },
+    {
+      "ingredient": "papel higienico",
+      "preferred_product": "Papel Higienico Higienol Plus Fusion o Elite doble hoja x4",
+      "brand": "Higienol / Elite",
+      "package_size": "4 unidades",
+      "category": "limpieza",
+      "notes": "ambas marcas aparecen",
+      "times_seen": 2
+    },
+    {
+      "ingredient": "pasta dental",
+      "preferred_product": "Colgate Luminous White Brilliant 90g",
+      "brand": "Colgate",
+      "package_size": "90g",
+      "category": "higiene",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "pimiento rojo",
+      "preferred_product": "Pimiento Rojo por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "pina",
+      "preferred_product": "Pina Gold por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "queso blanco light",
+      "preferred_product": "Queso Blanco Light Casancrem 290g",
+      "brand": "Casancrem",
+      "package_size": "290g",
+      "category": "lacteos",
+      "notes": "topping tostadas",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "queso cheddar",
+      "preferred_product": "Queso Cheddar Fetas Cuisine & Co 120g",
+      "brand": "Cuisine & Co",
+      "package_size": "120g",
+      "category": "lacteos",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "queso cremoso",
+      "preferred_product": "Queso Cremoso La Paulina",
+      "brand": "La Paulina",
+      "package_size": "kg",
+      "category": "lacteos",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "queso en hebras",
+      "preferred_product": "Finlandia Chef Cuatro Quesos Hebras 130g",
+      "brand": "La Serenisima Finlandia",
+      "package_size": "130g",
+      "category": "lacteos",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "queso pategras",
+      "preferred_product": "Queso Pategras La Paulina",
+      "brand": "La Paulina",
+      "package_size": "1kg aprox.",
+      "category": "lacteos",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "queso rallado",
+      "preferred_product": "Queso Rallado La Paulina 150g o Reggianito La Serenisima 130g",
+      "brand": "La Paulina / La Serenisima",
+      "package_size": "130-150g",
+      "category": "lacteos",
+      "notes": null,
+      "times_seen": 2
+    },
+    {
+      "ingredient": "rebozador",
+      "preferred_product": "Rebozador Fortificado Preferido 500g",
+      "brand": "Preferido",
+      "package_size": "500g",
+      "category": "almacen",
+      "notes": "para milanesas",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "rollo de cocina",
+      "preferred_product": "Rollo Cocina Clasico 50 panos x3 Sussex",
+      "brand": "Sussex",
+      "package_size": "3 unidades",
+      "category": "limpieza",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "sal",
+      "preferred_product": "Sal Fina Dos Anclas 500 Gr",
+      "brand": "Dos Anclas",
+      "package_size": "500g",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "sal gruesa",
+      "preferred_product": "Sal Gruesa Dos Anclas 500g",
+      "brand": "Dos Anclas",
+      "package_size": "500g",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "salchichas",
+      "preferred_product": "Salchichas Patyviena Fun x6 190g",
+      "brand": "Patyviena",
+      "package_size": "190g",
+      "category": "fiambres",
+      "notes": "consumo ocasional",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "separadores freezer",
+      "preferred_product": "Separadores para Freezer Separata 19x25 x100",
+      "brand": "Separata",
+      "package_size": "100 unidades",
+      "category": "cocina",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "tapas de empanada",
+      "preferred_product": "Tapas Empanadas Criollas La Saltena x22",
+      "brand": "La Saltena",
+      "package_size": "22 unidades",
+      "category": "panificados",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "tapas de empanada criollas",
+      "preferred_product": "Tapas Empanadas Criollas La Saltena x22",
+      "brand": "La Saltena",
+      "package_size": "22 unidades",
+      "category": "panificados",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "tomate",
+      "preferred_product": "Tomate Cherry por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": "tambien compran tomate perita en lata Salsati",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "tomate perita lata",
+      "preferred_product": "Tomate Perita Salsati con Pure Sin Gluten 400g",
+      "brand": "Salsati",
+      "package_size": "400g",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "vacio",
+      "preferred_product": "Vacio por kg, elegir oferta buena de carniceria/super",
+      "brand": null,
+      "package_size": "kg",
+      "category": "carniceria",
+      "notes": "corte ocasional",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "vacío",
+      "preferred_product": "Vacio por kg, elegir oferta buena de carniceria/super",
+      "brand": null,
+      "package_size": "kg",
+      "category": "carniceria",
+      "notes": "corte ocasional",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "vino malbec",
+      "preferred_product": "Luigi Bosca Malbec, Trapiche Medalla o Nicasia Red Blend Malbec 750ml",
+      "brand": "Luigi Bosca / Trapiche / Nicasia",
+      "package_size": "750ml",
+      "category": "bebidas",
+      "notes": "gusto ocasional",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "yerba",
+      "preferred_product": "Yerba Mate Playadito Suave 1kg",
+      "brand": "Playadito",
+      "package_size": "1kg",
+      "category": "almacen",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "yogur",
+      "preferred_product": "Yogur La Serenisima 120g, firme o batido",
+      "brand": "La Serenisima",
+      "package_size": "120g",
+      "category": "lacteos",
+      "notes": "frutilla o vainilla",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "yogur bajo lactosa",
+      "preferred_product": "Yogur La Serenisima si hay opcion baja lactosa; si no, comprar pocas unidades",
+      "brand": "La Serenisima",
+      "package_size": "120g",
+      "category": "lacteos",
+      "notes": "priorizar menor lactosa",
+      "times_seen": 1
+    },
+    {
+      "ingredient": "zanahoria",
+      "preferred_product": "Zanahoria por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    },
+    {
+      "ingredient": "zapallo",
+      "preferred_product": "Zapallo Coreano por kg",
+      "brand": null,
+      "package_size": "kg",
+      "category": "verduleria",
+      "notes": null,
+      "times_seen": 1
+    }
+  ]
+}
