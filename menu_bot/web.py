@@ -23,6 +23,7 @@ from .planner import (
     week_start_for,
 )
 from .seed import seed_default_user
+from .weather import fetch_weather_context, format_weather_summary
 
 
 load_dotenv()
@@ -103,13 +104,20 @@ def _active_chat_id() -> int:
 def _get_or_create(chat_id: int, day: date) -> dict[str, Any]:
     start = week_start_for(day)
     weekly = DB.get_weekly_plan(chat_id, start.isoformat())
-    if weekly:
+    if weekly and not _plan_needs_refresh(weekly["plan"]):
         return weekly
     user = DB.get_user(chat_id)
     offers = DB.list_offers(chat_id)
-    plan, shopping = generate_week(start, user["profile"], user["conditions"], offers)
+    plan, shopping = generate_week(start, user["profile"], user["conditions"], offers, fetch_weather_context())
     DB.save_weekly_plan(chat_id, start.isoformat(), plan, shopping)
     return {"plan": plan, "shopping_list": shopping}
+
+
+def _plan_needs_refresh(plan: list[dict[str, Any]]) -> bool:
+    if not plan:
+        return True
+    comidas = plan[0].get("comidas", {})
+    return "colación 2" in comidas or "clima" not in plan[0]
 
 
 def _today() -> date:
@@ -397,6 +405,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
         <div>
           <h1>Menú de hoy</h1>
           <div class="date">{escape(today_plan["dia"].title())} · {escape(today_plan["fecha"])}</div>
+          <div class="date">{escape(format_weather_summary(today_plan.get("clima")))}</div>
         </div>
         <div class="time">{escape(now)}</div>
       </header>

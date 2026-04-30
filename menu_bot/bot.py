@@ -19,6 +19,7 @@ from .planner import (
     generate_week,
     week_start_for,
 )
+from .weather import fetch_weather_context
 
 
 load_dotenv()
@@ -268,7 +269,7 @@ def _build_and_save(chat_id: int, day: date) -> tuple[list[dict], dict[str, floa
     user = DB.get_user(chat_id)
     offers = DB.list_offers(chat_id)
     start = week_start_for(day)
-    plan, shopping = generate_week(start, user["profile"], user["conditions"], offers)
+    plan, shopping = generate_week(start, user["profile"], user["conditions"], offers, fetch_weather_context())
     DB.save_weekly_plan(chat_id, start.isoformat(), plan, shopping)
     return plan, shopping, start
 
@@ -276,10 +277,17 @@ def _build_and_save(chat_id: int, day: date) -> tuple[list[dict], dict[str, floa
 def _get_or_create(chat_id: int, day: date) -> dict:
     start = week_start_for(day)
     weekly = DB.get_weekly_plan(chat_id, start.isoformat())
-    if weekly:
+    if weekly and not _plan_needs_refresh(weekly["plan"]):
         return weekly
     plan, shopping, _ = _build_and_save(chat_id, day)
     return {"plan": plan, "shopping_list": shopping}
+
+
+def _plan_needs_refresh(plan: list[dict]) -> bool:
+    if not plan:
+        return True
+    comidas = plan[0].get("comidas", {})
+    return "colación 2" in comidas or "clima" not in plan[0]
 
 
 def _today() -> date:

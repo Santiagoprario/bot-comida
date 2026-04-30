@@ -96,6 +96,7 @@ def generate_week(
     profile: dict[str, Any],
     conditions: dict[str, Any],
     offers: list[dict[str, str | None]],
+    weather_context: dict[str, dict[str, float | str]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, float]]:
     people = int(profile.get("personas") or 2)
     avoid = _words(f"{conditions.get('restricciones', '')} {conditions.get('evitar', '')}")
@@ -118,6 +119,7 @@ def generate_week(
             "fecha": (start + timedelta(days=day_index)).isoformat(),
             "dia": day_name,
             "comidas": {},
+            "clima": (weather_context or {}).get((start + timedelta(days=day_index)).isoformat()),
         }
         for slot in SLOTS:
             meal_type = "colación" if slot.startswith("colación") else slot
@@ -141,6 +143,7 @@ def generate_week(
                 forced_tag=forced_tag,
                 blocked_proteins=used_main_proteins if protein_scope else None,
                 ingredient_counts=used_limited_ingredients,
+                weather=daily["clima"],
             )
             used_names[meal.name] += 1
             if protein_scope:
@@ -249,6 +252,7 @@ def _pick_meal(
     forced_tag: str | None = None,
     blocked_proteins: dict[str, int] | None = None,
     ingredient_counts: dict[str, int] | None = None,
+    weather: dict[str, float | str] | None = None,
 ) -> Meal:
     if forced_tag:
         tagged = [meal for meal in options if forced_tag in meal.tags]
@@ -275,6 +279,7 @@ def _pick_meal(
         score += 6 * len(haystack & offer_words)
         score += 2 * len(haystack & preferred)
         score += 4 if "milanesa" in meal.tags and forced_tag == "milanesa" else 0
+        score += _weather_score(meal, weather)
         score -= 10 * used_names[meal.name]
         score -= index
         score += (day_index + index) % 3
@@ -367,6 +372,21 @@ def _hard_blocked_limited_ingredient(meal: Meal, ingredient_counts: dict[str, in
     if not ingredient_counts:
         return False
     return "dannette o copa cindor" in meal.ingredients and ingredient_counts.get("dannette o copa cindor", 0) >= 1
+
+
+def _weather_score(meal: Meal, weather: dict[str, float | str] | None) -> int:
+    if not weather:
+        return 0
+    profile = str(weather.get("profile", "templado"))
+    haystack = _words(f"{meal.name} {meal.prep} {' '.join(meal.ingredients)} {' '.join(meal.tags)}")
+    fresh = {"ensalada", "bowl", "tacos", "palta", "tomate", "lechuga", "pepino", "rucula"}
+    warm = {"horno", "guiso", "guisadas", "tarta", "fideos", "pastas", "risotto", "sopa", "pure"}
+    fryer = {"air", "fryer", "papas", "milanesa"}
+    if profile == "calor":
+        return 4 * len(haystack & fresh) - 3 * len(haystack & warm)
+    if profile in {"frio", "lluvia"}:
+        return 4 * len(haystack & warm) + 2 * len(haystack & fryer) - 2 * len(haystack & fresh)
+    return 1 * len(haystack & fresh)
 
 
 def _add_household_items(shopping: defaultdict[str, float], start: date, people: int) -> None:

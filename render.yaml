@@ -14,3 +14,9 @@ services:
         value: "0"
       - key: SEED_PATH
         value: data/default_seed.json
+      - key: WEATHER_LATITUDE
+        value: "-38.0055"
+      - key: WEATHER_LONGITUDE
+        value: "-57.5426"
+      - key: WEATHER_TIMEZONE
+        value: America/Argentina/Buenos_Aires
