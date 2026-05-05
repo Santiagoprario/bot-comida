@@ -1,6 +1,6 @@
 # Menu Telegram Bot
 
-Bot de Telegram para generar un menú semanal con 4 comidas, 2 colaciones, envío diario y lista de compra consolidada.
+Bot de Telegram para generar un menú semanal con desayuno, colación, almuerzo, merienda y cena, envío diario y lista de compra consolidada.
 
 ## Qué hace
 
@@ -10,6 +10,7 @@ Bot de Telegram para generar un menú semanal con 4 comidas, 2 colaciones, enví
 - Genera menú semanal priorizando ingredientes en oferta.
 - Crea lista de compra semanal agregada.
 - Envía el menú del día automáticamente.
+- Permite aplicar presets familiares, por ejemplo `/preset sanda`.
 
 ## Instalación
 
@@ -92,6 +93,8 @@ pytest
 /oferta pollo $4500 kg
 /ofertas
 /limpiar_ofertas
+/presets
+/preset sanda
 /generar_semana
 /menu_hoy
 /menu_semana
@@ -119,9 +122,18 @@ El bot también muestra un teclado persistente con botones para:
 - Cambiar hoy
 - Invitar
 - Mi ID
+- Presets
 - Ver perfil
 - Ver reglas
 - Ayuda
+
+## Presets familiares
+
+```text
+/preset sanda
+```
+
+Configura una cuenta para 2 adultos y 2 chicos, comida argentina familiar, porciones para 4 y clima de Santa Elena.
 
 ## Reglas cargadas para el caso actual
 

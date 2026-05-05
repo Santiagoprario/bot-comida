@@ -19,6 +19,7 @@ from .planner import (
     generate_week,
     week_start_for,
 )
+from .presets import get_preset, list_presets
 from .weather import fetch_weather_context
 
 
@@ -35,6 +36,7 @@ KEYBOARD = ReplyKeyboardMarkup(
         ["Hogar"],
         ["Stock", "Cambiar hoy"],
         ["Invitar", "Mi ID"],
+        ["Presets"],
         ["Ver perfil", "Ver reglas"],
         ["Ayuda"],
     ],
@@ -56,6 +58,7 @@ BUTTON_ACTIONS = {
     "cambiar hoy": "cambiar_hoy",
     "invitar": "invitar",
     "mi id": "mi_id",
+    "presets": "presets",
     "ver perfil": "perfil",
     "ver reglas": "condiciones",
     "ayuda": "ayuda",
@@ -85,6 +88,8 @@ async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Comandos:\n"
         "/perfil objetivo=bajar grasa, personas=1, calorias=2200, presupuesto=50000\n"
         "/condiciones restricciones=sin gluten, evitar=pescado, preferencias=pollo huevos\n"
+        "/presets\n"
+        "/preset sanda\n"
         "/oferta pollo $4500 kg\n"
         "/ofertas\n"
         "/limpiar_ofertas\n"
@@ -144,6 +149,40 @@ async def condiciones(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     conditions = DB.update_conditions(chat_id, values)
     await update.message.reply_text(f"Condiciones actualizadas:\n{_format_dict(conditions)}", reply_markup=KEYBOARD)
+
+
+async def presets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    rows = list_presets()
+    lines = ["Presets disponibles:"]
+    for key, preset_data in rows.items():
+        lines.append(f"- /preset {key}: {preset_data['description']}")
+    await update.message.reply_text("\n".join(lines), reply_markup=KEYBOARD)
+
+
+async def preset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    chat_id = update.effective_chat.id
+    name = _command_payload(update.message.text)
+    if not name:
+        await presets(update, context)
+        return
+    preset_data = get_preset(name)
+    if not preset_data:
+        await update.message.reply_text("No encontré ese preset. Usá /presets para ver opciones.", reply_markup=KEYBOARD)
+        return
+    profile = DB.update_profile(chat_id, preset_data["profile"])
+    conditions = DB.update_conditions(chat_id, preset_data["conditions"])
+    _clear_current_week(chat_id)
+    await update.message.reply_text(
+        f"Preset aplicado: {preset_data['label']}.\n\n"
+        f"Perfil:\n{_format_dict(profile)}\n\n"
+        f"Reglas:\n{_format_dict(conditions)}\n\n"
+        "Regeneré la configuración base. Usá /generar_semana para crear el menú familiar.",
+        reply_markup=KEYBOARD,
+    )
 
 
 async def oferta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -325,7 +364,7 @@ async def invitar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "Código de invitación creado.\n\n"
         f"Tu cuñada tiene que abrir el bot y mandar:\n/start {code}\n\n"
-        "Después puede configurar su perfil con /perfil y sus reglas con /condiciones.",
+        "Después puede aplicar /preset sanda o configurar su perfil con /perfil y sus reglas con /condiciones.",
         reply_markup=KEYBOARD,
     )
 
@@ -363,6 +402,8 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await invitar(update, context)
     elif action == "mi_id":
         await mi_id(update, context)
+    elif action == "presets":
+        await presets(update, context)
     elif action == "perfil":
         await perfil(update, context)
     elif action == "condiciones":
@@ -389,6 +430,8 @@ def build_application(token: str) -> Application:
     app.add_handler(CommandHandler("ayuda", ayuda))
     app.add_handler(CommandHandler("perfil", perfil))
     app.add_handler(CommandHandler("condiciones", condiciones))
+    app.add_handler(CommandHandler("presets", presets))
+    app.add_handler(CommandHandler("preset", preset))
     app.add_handler(CommandHandler("oferta", oferta))
     app.add_handler(CommandHandler("ofertas", ofertas))
     app.add_handler(CommandHandler("mis_marcas", mis_marcas))
@@ -427,7 +470,13 @@ def _build_and_save(chat_id: int, day: date) -> tuple[list[dict], dict[str, floa
     user = DB.get_user(chat_id)
     offers = DB.list_offers(chat_id)
     start = week_start_for(day)
-    plan, shopping = generate_week(start, user["profile"], user["conditions"], offers, fetch_weather_context())
+    plan, shopping = generate_week(
+        start,
+        user["profile"],
+        user["conditions"],
+        offers,
+        fetch_weather_context(user["profile"]),
+    )
     DB.save_weekly_plan(chat_id, start.isoformat(), plan, shopping)
     return plan, shopping, start
 
@@ -478,7 +527,8 @@ async def _handle_invite_start(update: Update) -> bool:
         return True
     if payload and DB.consume_invite(payload, chat_id):
         await update.message.reply_text(
-            "Listo, cuenta familiar activada. Configurá tu perfil con /perfil y tus reglas con /condiciones.",
+            "Listo, cuenta familiar activada. Podés aplicar /preset sanda o configurar tu perfil "
+            "con /perfil y tus reglas con /condiciones.",
             reply_markup=KEYBOARD,
         )
         return True

@@ -1,6 +1,7 @@
 from datetime import date
 
 from menu_bot.planner import generate_week, week_start_for, _protein_key
+from menu_bot.presets import get_preset
 
 
 def test_week_start_for_monday():
@@ -54,3 +55,19 @@ def test_custom_rules_limit_repetition_and_force_milanesas():
     assert sum("fideos" in name or "pastas" in name for name in names) <= 2
     assert any("papas tipo McCain para air fryer" == item for item in shopping)
     assert any(item in shopping for item in ("papel higienico", "detergente", "rollo de cocina"))
+
+
+def test_sanda_preset_generates_family_portions():
+    preset = get_preset("sanda")
+    assert preset is not None
+
+    plan, _shopping = generate_week(
+        date(2026, 5, 4),
+        preset["profile"],
+        preset["conditions"],
+        [],
+    )
+
+    assert len(plan) == 7
+    assert all(meal["porciones"] == 4 for day in plan for meal in day["comidas"].values())
+    assert plan[0]["comidas"]["almuerzo"]["ingredientes"]

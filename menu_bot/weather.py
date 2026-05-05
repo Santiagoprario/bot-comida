@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import json
 import os
 from datetime import date
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
@@ -12,9 +12,13 @@ MAR_DEL_PLATA_LAT = -38.0055
 MAR_DEL_PLATA_LON = -57.5426
 
 
-def fetch_weather_context() -> dict[str, dict[str, float | str]]:
-    latitude = float(os.getenv("WEATHER_LATITUDE", str(MAR_DEL_PLATA_LAT)))
-    longitude = float(os.getenv("WEATHER_LONGITUDE", str(MAR_DEL_PLATA_LON)))
+def fetch_weather_context(profile: dict[str, Any] | None = None) -> dict[str, dict[str, float | str]]:
+    latitude = _profile_float(profile, "weather_latitude", "latitude", "latitud")
+    longitude = _profile_float(profile, "weather_longitude", "longitude", "longitud")
+    if latitude is None:
+        latitude = float(os.getenv("WEATHER_LATITUDE", str(MAR_DEL_PLATA_LAT)))
+    if longitude is None:
+        longitude = float(os.getenv("WEATHER_LONGITUDE", str(MAR_DEL_PLATA_LON)))
     params = urlencode(
         {
             "latitude": latitude,
@@ -75,3 +79,13 @@ def _safe_float(value: object) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _profile_float(profile: dict[str, Any] | None, *keys: str) -> float | None:
+    if not profile:
+        return None
+    for key in keys:
+        value = _safe_float(profile.get(key))
+        if value is not None:
+            return value
+    return None

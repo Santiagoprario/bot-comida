@@ -124,7 +124,13 @@ def _get_or_create(chat_id: int, day: date) -> dict[str, Any]:
         return weekly
     user = DB.get_user(chat_id)
     offers = DB.list_offers(chat_id)
-    plan, shopping = generate_week(start, user["profile"], user["conditions"], offers, fetch_weather_context())
+    plan, shopping = generate_week(
+        start,
+        user["profile"],
+        user["conditions"],
+        offers,
+        fetch_weather_context(user["profile"]),
+    )
     DB.save_weekly_plan(chat_id, start.isoformat(), plan, shopping)
     return {"plan": plan, "shopping_list": shopping}
 
