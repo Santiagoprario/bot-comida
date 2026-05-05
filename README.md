@@ -9,6 +9,7 @@ Bot de Telegram para generar un menú semanal con desayuno, colación, almuerzo,
 - Permite cargar ofertas manualmente desde Telegram.
 - Genera menú semanal priorizando ingredientes en oferta.
 - Crea lista de compra semanal agregada.
+- Simula compra parcial en Disco usando precios públicos del catálogo online.
 - Envía el menú del día automáticamente.
 - Permite aplicar presets familiares, por ejemplo `/preset sanda`.
 
@@ -95,6 +96,9 @@ pytest
 /limpiar_ofertas
 /presets
 /preset sanda
+/disco_config sc=33, zona=Santa Clara del Mar
+/buscar_disco leche zero lactosa
+/simular_disco
 /generar_semana
 /menu_hoy
 /menu_semana
@@ -118,6 +122,7 @@ El bot también muestra un teclado persistente con botones para:
 - Ver ofertas
 - Mis marcas
 - Hogar
+- Disco
 - Stock
 - Cambiar hoy
 - Invitar

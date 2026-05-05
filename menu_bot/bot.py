@@ -9,6 +9,13 @@ from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
 from .db import Database
+from .disco import (
+    DEFAULT_SALES_CHANNEL,
+    format_disco_search,
+    format_disco_simulation,
+    search_disco_products,
+    simulate_disco_purchase,
+)
 from .parser import parse_key_values, parse_offer
 from .planner import (
     format_day,
@@ -33,7 +40,7 @@ KEYBOARD = ReplyKeyboardMarkup(
         ["Menú de hoy", "Regenerar semana"],
         ["Menú semanal", "Compra"],
         ["Ver ofertas", "Mis marcas"],
-        ["Hogar"],
+        ["Hogar", "Disco"],
         ["Stock", "Cambiar hoy"],
         ["Invitar", "Mi ID"],
         ["Presets"],
@@ -54,6 +61,7 @@ BUTTON_ACTIONS = {
     "ver ofertas": "ofertas",
     "mis marcas": "mis_marcas",
     "hogar": "hogar",
+    "disco": "simular_disco",
     "stock": "stock",
     "cambiar hoy": "cambiar_hoy",
     "invitar": "invitar",
@@ -90,6 +98,9 @@ async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/condiciones restricciones=sin gluten, evitar=pescado, preferencias=pollo huevos\n"
         "/presets\n"
         "/preset sanda\n"
+        "/disco_config sc=33, zona=Santa Clara del Mar\n"
+        "/buscar_disco leche zero lactosa\n"
+        "/simular_disco\n"
         "/oferta pollo $4500 kg\n"
         "/ofertas\n"
         "/limpiar_ofertas\n"
@@ -217,6 +228,64 @@ async def limpiar_ofertas(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     DB.clear_offers(update.effective_chat.id)
     await update.message.reply_text("Ofertas borradas.", reply_markup=KEYBOARD)
+
+
+async def disco_config(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    chat_id = update.effective_chat.id
+    payload = _command_payload(update.message.text)
+    if not payload:
+        user = DB.get_user(chat_id)
+        sc = _disco_sales_channel(user["profile"])
+        zona = user["profile"].get("disco_zona", "sin zona cargada")
+        await update.message.reply_text(f"Disco configurado:\n- sc: {sc}\n- zona: {zona}", reply_markup=KEYBOARD)
+        return
+    values = parse_key_values(payload)
+    if not values:
+        await update.message.reply_text("Ejemplo: /disco_config sc=33, zona=Santa Clara del Mar", reply_markup=KEYBOARD)
+        return
+    profile_values = {}
+    if "sc" in values:
+        profile_values["disco_sc"] = str(values["sc"])
+    if "zona" in values:
+        profile_values["disco_zona"] = values["zona"]
+    profile = DB.update_profile(chat_id, profile_values)
+    await update.message.reply_text(
+        f"Disco actualizado:\n- sc: {_disco_sales_channel(profile)}\n- zona: {profile.get('disco_zona', 'sin zona')}",
+        reply_markup=KEYBOARD,
+    )
+
+
+async def buscar_disco(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    query = _command_payload(update.message.text)
+    if not query:
+        await update.message.reply_text("Ejemplo: /buscar_disco leche zero lactosa", reply_markup=KEYBOARD)
+        return
+    user = DB.get_user(update.effective_chat.id)
+    products = search_disco_products(query, sales_channel=_disco_sales_channel(user["profile"]))
+    await update.message.reply_text(format_disco_search(products, query), reply_markup=KEYBOARD)
+
+
+async def simular_disco(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    chat_id = update.effective_chat.id
+    weekly = _get_or_create(chat_id, _today())
+    user = DB.get_user(chat_id)
+    sales_channel = _disco_sales_channel(user["profile"])
+    max_items = int(os.getenv("DISCO_SIMULATION_LIMIT", "14"))
+    lines, missing = simulate_disco_purchase(
+        weekly["shopping_list"],
+        sales_channel=sales_channel,
+        max_items=max_items,
+    )
+    await update.message.reply_text(
+        _split_if_needed(format_disco_simulation(lines, missing, sales_channel)),
+        reply_markup=KEYBOARD,
+    )
 
 
 async def generar_semana(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -394,6 +463,8 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await mis_marcas(update, context)
     elif action == "hogar":
         await hogar(update, context)
+    elif action == "simular_disco":
+        await simular_disco(update, context)
     elif action == "stock":
         await mi_stock(update, context)
     elif action == "cambiar_hoy":
@@ -434,6 +505,9 @@ def build_application(token: str) -> Application:
     app.add_handler(CommandHandler("preset", preset))
     app.add_handler(CommandHandler("oferta", oferta))
     app.add_handler(CommandHandler("ofertas", ofertas))
+    app.add_handler(CommandHandler("disco_config", disco_config))
+    app.add_handler(CommandHandler("buscar_disco", buscar_disco))
+    app.add_handler(CommandHandler("simular_disco", simular_disco))
     app.add_handler(CommandHandler("mis_marcas", mis_marcas))
     app.add_handler(CommandHandler("hogar", hogar))
     app.add_handler(CommandHandler("stock", stock))
@@ -547,6 +621,10 @@ def _allowed_chat_ids() -> set[str]:
         if value
     )
     return {part.strip() for part in raw.split(",") if part.strip()}
+
+
+def _disco_sales_channel(profile: dict) -> str:
+    return str(profile.get("disco_sc") or DEFAULT_SALES_CHANNEL)
 
 
 def _clear_current_week(chat_id: int) -> None:
