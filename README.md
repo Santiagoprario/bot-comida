@@ -76,7 +76,18 @@ El servicio usa:
 uvicorn menu_bot.web:app --host 0.0.0.0 --port $PORT
 ```
 
-Nota: en hosting gratis la base local puede ser efímera. El archivo `data/default_seed.json` carga tu perfil, reglas y marcas iniciales al arrancar.
+Nota: en hosting gratis la base local puede ser efímera. El archivo `data/default_seed.json` carga tu perfil, reglas, marcas iniciales y usuarios familiares fijos al arrancar.
+
+Para que una cuenta familiar no dependa de invitaciones después de un reinicio, agregá su ID a `ALLOWED_CHAT_IDS` y al bloque `users` del seed. Ejemplo actual:
+
+```json
+"users": [
+  {
+    "chat_id": 6419465333,
+    "preset": "sanda"
+  }
+]
+```
 
 ## Tests
 

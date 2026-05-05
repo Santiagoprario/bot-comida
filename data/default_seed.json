@@ -16,6 +16,12 @@
     "estilo": "Argentina Mar del Plata bajar grasa saludable variado rico",
     "chefs": "Paulina Cocina, Narda Lepes, Germán Martitegui, Donato De Santis, Petersen"
   },
+  "users": [
+    {
+      "chat_id": 6419465333,
+      "preset": "sanda"
+    }
+  ],
   "product_preferences": [
     {
       "ingredient": "aceite de oliva",
