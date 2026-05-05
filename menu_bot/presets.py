@@ -7,17 +7,18 @@ from typing import Any
 PRESETS: dict[str, dict[str, Any]] = {
     "sanda": {
         "label": "Comida Sanda",
-        "description": "2 adultos y 2 chicos, comida argentina familiar, Santa Elena.",
+        "description": "2 adultos y 2 chicos, comida argentina familiar, Santa Clara del Mar.",
         "profile": {
             "familia": "sanda",
             "personas": 4,
             "integrantes": "2 adultos y 2 chicos",
             "objetivo": "comida argentina familiar saludable, rica y rendidora",
             "pais": "Argentina",
-            "provincia": "Entre Rios",
-            "ciudad": "Santa Elena",
-            "weather_latitude": -30.944,
-            "weather_longitude": -59.789,
+            "provincia": "Buenos Aires",
+            "partido": "Mar Chiquita",
+            "ciudad": "Santa Clara del Mar",
+            "weather_latitude": -37.836,
+            "weather_longitude": -57.508,
         },
         "conditions": {
             "estilo": "comida argentina familiar, casera, variada y apta para chicos",
@@ -30,7 +31,7 @@ PRESETS: dict[str, dict[str, Any]] = {
                 "Siempre calcular porciones para 4 personas: 2 adultos y 2 chicos. Priorizar comida "
                 "argentina familiar, rica, simple de comprar y rendidora. Incluir verduras y frutas de "
                 "forma concreta en cada comida cuando corresponda. Las recetas deben funcionar para una "
-                "mesa familiar y evitar sabores muy picantes. Ajustar platos segun el clima de Santa Elena."
+                "mesa familiar y evitar sabores muy picantes. Ajustar platos segun el clima de Santa Clara del Mar."
             ),
             "chefs": "Paulina Cocina, Narda Lepes, German Martitegui, Donato De Santis, Petersen",
         },

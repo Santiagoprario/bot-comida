@@ -133,7 +133,7 @@ El bot también muestra un teclado persistente con botones para:
 /preset sanda
 ```
 
-Configura una cuenta para 2 adultos y 2 chicos, comida argentina familiar, porciones para 4 y clima de Santa Elena.
+Configura una cuenta para 2 adultos y 2 chicos, comida argentina familiar, porciones para 4 y clima de Santa Clara del Mar, Mar Chiquita.
 
 ## Reglas cargadas para el caso actual
 
