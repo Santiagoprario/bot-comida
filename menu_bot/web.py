@@ -64,9 +64,9 @@ CHEF_STYLES = {
 
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, pin: str | None = None) -> str:
+def home(request: Request, pin: str | None = None, chat_id: int | None = None) -> str:
     _guard_web(request, pin)
-    chat_id = _active_chat_id()
+    chat_id = _active_chat_id(chat_id)
     today = _today()
     weekly = _get_or_create(chat_id, today)
     today_plan = weekly["plan"][today.weekday()]
@@ -78,9 +78,9 @@ def home(request: Request, pin: str | None = None) -> str:
 
 
 @app.get("/api/menu")
-def api_menu(request: Request, pin: str | None = None) -> JSONResponse:
+def api_menu(request: Request, pin: str | None = None, chat_id: int | None = None) -> JSONResponse:
     _guard_web(request, pin)
-    chat_id = _active_chat_id()
+    chat_id = _active_chat_id(chat_id)
     today = _today()
     weekly = _get_or_create(chat_id, today)
     return JSONResponse(
@@ -102,7 +102,9 @@ def _guard_web(request: Request, pin: str | None) -> None:
     raise HTTPException(status_code=401, detail="PIN requerido")
 
 
-def _active_chat_id() -> int:
+def _active_chat_id(requested_chat_id: int | None = None) -> int:
+    if requested_chat_id and DB.is_authorized_user(requested_chat_id):
+        return requested_chat_id
     configured = os.getenv("DEFAULT_CHAT_ID", "").strip()
     if configured:
         return int(configured)

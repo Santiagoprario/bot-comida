@@ -61,6 +61,7 @@ El proyecto incluye `render.yaml`. En Render:
 TELEGRAM_BOT_TOKEN=tu_token
 DEFAULT_CHAT_ID=tu_chat_id
 ALLOWED_CHAT_ID=tu_chat_id
+ALLOWED_CHAT_IDS=tu_chat_id,otro_chat_id
 DASHBOARD_PIN=un_pin
 DB_PATH=/tmp/menu_bot.sqlite3
 TIMEZONE=America/Argentina/Buenos_Aires
@@ -101,6 +102,8 @@ pytest
 /favorito milanesas de nalga
 /no_repetir pescado
 /cambiar_hoy
+/invitar
+/mi_id
 ```
 
 El bot también muestra un teclado persistente con botones para:
@@ -114,6 +117,8 @@ El bot también muestra un teclado persistente con botones para:
 - Hogar
 - Stock
 - Cambiar hoy
+- Invitar
+- Mi ID
 - Ver perfil
 - Ver reglas
 - Ayuda

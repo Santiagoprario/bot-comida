@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -82,6 +83,20 @@ class Database:
                     sentiment TEXT NOT NULL,
                     note TEXT,
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS authorized_users (
+                    chat_id INTEGER PRIMARY KEY,
+                    invited_by INTEGER,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS invites (
+                    code TEXT PRIMARY KEY,
+                    created_by INTEGER NOT NULL,
+                    used_by INTEGER,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    used_at TEXT
                 );
                 """
             )
@@ -273,3 +288,39 @@ class Database:
                 "INSERT INTO feedback(chat_id, item, sentiment, note) VALUES (?, ?, ?, ?)",
                 (chat_id, item.strip().lower(), sentiment, note),
             )
+
+    def authorize_user(self, chat_id: int, invited_by: int | None = None) -> None:
+        self.ensure_user(chat_id)
+        with self.connect() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO authorized_users(chat_id, invited_by) VALUES (?, ?)",
+                (chat_id, invited_by),
+            )
+
+    def is_authorized_user(self, chat_id: int) -> bool:
+        with self.connect() as conn:
+            row = conn.execute("SELECT 1 FROM authorized_users WHERE chat_id = ?", (chat_id,)).fetchone()
+        return row is not None
+
+    def create_invite(self, created_by: int) -> str:
+        self.authorize_user(created_by)
+        code = secrets.token_urlsafe(6).replace("-", "").replace("_", "")[:8].upper()
+        with self.connect() as conn:
+            conn.execute("INSERT INTO invites(code, created_by) VALUES (?, ?)", (code, created_by))
+        return code
+
+    def consume_invite(self, code: str, used_by: int) -> bool:
+        normalized = code.strip().upper()
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT created_by, used_by FROM invites WHERE code = ?",
+                (normalized,),
+            ).fetchone()
+            if not row or row["used_by"] is not None:
+                return False
+            conn.execute(
+                "UPDATE invites SET used_by = ?, used_at = CURRENT_TIMESTAMP WHERE code = ?",
+                (used_by, normalized),
+            )
+        self.authorize_user(used_by, int(row["created_by"]))
+        return True

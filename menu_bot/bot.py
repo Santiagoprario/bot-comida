@@ -34,6 +34,7 @@ KEYBOARD = ReplyKeyboardMarkup(
         ["Ver ofertas", "Mis marcas"],
         ["Hogar"],
         ["Stock", "Cambiar hoy"],
+        ["Invitar", "Mi ID"],
         ["Ver perfil", "Ver reglas"],
         ["Ayuda"],
     ],
@@ -53,6 +54,8 @@ BUTTON_ACTIONS = {
     "hogar": "hogar",
     "stock": "stock",
     "cambiar hoy": "cambiar_hoy",
+    "invitar": "invitar",
+    "mi id": "mi_id",
     "ver perfil": "perfil",
     "ver reglas": "condiciones",
     "ayuda": "ayuda",
@@ -60,7 +63,7 @@ BUTTON_ACTIONS = {
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not await _guard(update):
+    if not await _handle_invite_start(update):
         return
     chat_id = update.effective_chat.id
     DB.ensure_user(chat_id)
@@ -93,6 +96,8 @@ async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/favorito milanesas de nalga\n"
         "/no_repetir pescado\n"
         "/cambiar_hoy\n"
+        "/invitar\n"
+        "/mi_id\n"
         "/generar_semana\n"
         "/menu_hoy\n"
         "/menu_semana\n"
@@ -313,6 +318,24 @@ async def cambiar_hoy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text("Regeneré la semana. Menú de hoy:\n\n" + format_day(weekly["plan"][_today().weekday()]), reply_markup=KEYBOARD)
 
 
+async def invitar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    code = DB.create_invite(update.effective_chat.id)
+    await update.message.reply_text(
+        "Código de invitación creado.\n\n"
+        f"Tu cuñada tiene que abrir el bot y mandar:\n/start {code}\n\n"
+        "Después puede configurar su perfil con /perfil y sus reglas con /condiciones.",
+        reply_markup=KEYBOARD,
+    )
+
+
+async def mi_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    await update.message.reply_text(f"Tu chat ID es: {update.effective_chat.id}", reply_markup=KEYBOARD)
+
+
 async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _guard(update):
         return
@@ -336,6 +359,10 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await mi_stock(update, context)
     elif action == "cambiar_hoy":
         await cambiar_hoy(update, context)
+    elif action == "invitar":
+        await invitar(update, context)
+    elif action == "mi_id":
+        await mi_id(update, context)
     elif action == "perfil":
         await perfil(update, context)
     elif action == "condiciones":
@@ -372,6 +399,8 @@ def build_application(token: str) -> Application:
     app.add_handler(CommandHandler("favorito", favorito))
     app.add_handler(CommandHandler("no_repetir", no_repetir))
     app.add_handler(CommandHandler("cambiar_hoy", cambiar_hoy))
+    app.add_handler(CommandHandler("invitar", invitar))
+    app.add_handler(CommandHandler("mi_id", mi_id))
     app.add_handler(CommandHandler("limpiar_ofertas", limpiar_ofertas))
     app.add_handler(CommandHandler("generar_semana", generar_semana))
     app.add_handler(CommandHandler("menu_hoy", menu_hoy))
@@ -424,15 +453,50 @@ def _today() -> date:
 
 
 async def _guard(update: Update) -> bool:
-    allowed = os.getenv("ALLOWED_CHAT_ID") or os.getenv("DEFAULT_CHAT_ID")
-    if not allowed:
-        return True
     chat_id = update.effective_chat.id if update.effective_chat else None
-    if str(chat_id) == str(allowed):
+    if chat_id and DB.is_authorized_user(chat_id):
+        return True
+    allowed_ids = _allowed_chat_ids()
+    if not allowed_ids:
+        return True
+    if str(chat_id) in allowed_ids:
+        if chat_id:
+            DB.authorize_user(chat_id)
         return True
     if update.message:
-        await update.message.reply_text("No autorizado.")
+        await update.message.reply_text(
+            "No autorizado. Pedile al dueño del bot un código y usá /start CODIGO."
+        )
     return False
+
+
+async def _handle_invite_start(update: Update) -> bool:
+    chat_id = update.effective_chat.id
+    payload = _command_payload(update.message.text)
+    if DB.is_authorized_user(chat_id) or str(chat_id) in _allowed_chat_ids() or not _allowed_chat_ids():
+        DB.authorize_user(chat_id)
+        return True
+    if payload and DB.consume_invite(payload, chat_id):
+        await update.message.reply_text(
+            "Listo, cuenta familiar activada. Configurá tu perfil con /perfil y tus reglas con /condiciones.",
+            reply_markup=KEYBOARD,
+        )
+        return True
+    await update.message.reply_text("Código inválido o vencido. Pedí una nueva invitación.")
+    return False
+
+
+def _allowed_chat_ids() -> set[str]:
+    raw = ",".join(
+        value
+        for value in [
+            os.getenv("ALLOWED_CHAT_IDS", ""),
+            os.getenv("ALLOWED_CHAT_ID", ""),
+            os.getenv("DEFAULT_CHAT_ID", ""),
+        ]
+        if value
+    )
+    return {part.strip() for part in raw.split(",") if part.strip()}
 
 
 def _clear_current_week(chat_id: int) -> None:
