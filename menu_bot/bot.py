@@ -11,6 +11,7 @@ from telegram.ext import Application, ApplicationBuilder, CommandHandler, Contex
 from .db import Database
 from .disco import (
     DEFAULT_SALES_CHANNEL,
+    format_disco_product_list,
     format_disco_search,
     format_disco_simulation,
     search_disco_products,
@@ -101,6 +102,7 @@ async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/disco_config sc=33, zona=Santa Clara del Mar\n"
         "/buscar_disco leche zero lactosa\n"
         "/simular_disco\n"
+        "/compra_disco\n"
         "/oferta pollo $4500 kg\n"
         "/ofertas\n"
         "/limpiar_ofertas\n"
@@ -288,6 +290,25 @@ async def simular_disco(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
 
+async def compra_disco(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    chat_id = update.effective_chat.id
+    weekly = _get_or_create(chat_id, _today())
+    user = DB.get_user(chat_id)
+    sales_channel = _disco_sales_channel(user["profile"])
+    max_items = int(os.getenv("DISCO_SIMULATION_LIMIT", "14"))
+    lines, missing = simulate_disco_purchase(
+        weekly["shopping_list"],
+        sales_channel=sales_channel,
+        max_items=max_items,
+    )
+    await update.message.reply_text(
+        _split_if_needed(format_disco_product_list(lines, missing, sales_channel)),
+        reply_markup=KEYBOARD,
+    )
+
+
 async def generar_semana(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _guard(update):
         return
@@ -325,7 +346,22 @@ async def compra(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     weekly = _get_or_create(chat_id, _today())
     preferences = DB.get_product_preferences(chat_id)
     pantry = DB.list_pantry_items(chat_id)
-    await update.message.reply_text(format_shopping_list(weekly["shopping_list"], preferences, pantry), reply_markup=KEYBOARD)
+    user = DB.get_user(chat_id)
+    sales_channel = _disco_sales_channel(user["profile"])
+    max_items = int(os.getenv("DISCO_SIMULATION_LIMIT", "14"))
+    disco_lines, missing = simulate_disco_purchase(
+        weekly["shopping_list"],
+        sales_channel=sales_channel,
+        max_items=max_items,
+    )
+    await update.message.reply_text(
+        _split_if_needed(
+            format_shopping_list(weekly["shopping_list"], preferences, pantry)
+            + "\n\n"
+            + format_disco_product_list(disco_lines, missing, sales_channel)
+        ),
+        reply_markup=KEYBOARD,
+    )
 
 
 async def mis_marcas(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -508,6 +544,7 @@ def build_application(token: str) -> Application:
     app.add_handler(CommandHandler("disco_config", disco_config))
     app.add_handler(CommandHandler("buscar_disco", buscar_disco))
     app.add_handler(CommandHandler("simular_disco", simular_disco))
+    app.add_handler(CommandHandler("compra_disco", compra_disco))
     app.add_handler(CommandHandler("mis_marcas", mis_marcas))
     app.add_handler(CommandHandler("hogar", hogar))
     app.add_handler(CommandHandler("stock", stock))

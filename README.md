@@ -110,6 +110,7 @@ pytest
 /disco_config sc=33, zona=Santa Clara del Mar
 /buscar_disco leche zero lactosa
 /simular_disco
+/compra_disco
 /generar_semana
 /menu_hoy
 /menu_semana

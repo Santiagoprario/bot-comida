@@ -122,6 +122,31 @@ def format_disco_simulation(lines: list[DiscoLine], missing: list[str], sales_ch
     return "\n".join(output)
 
 
+def format_disco_product_list(lines: list[DiscoLine], missing: list[str], sales_channel: str) -> str:
+    if not lines:
+        return "Productos Disco: sin compra semanal para mapear."
+
+    total = sum(line.subtotal for line in lines)
+    output = [
+        f"Productos sugeridos en Disco (sc={sales_channel})",
+        "Estimado por productos reales del catálogo online.",
+    ]
+    for line in lines:
+        quantity = _format_quantity(line.quantity)
+        if not line.product:
+            output.append(f"- {line.ingredient}: {quantity} -> sin producto sugerido")
+            continue
+        promo = f" | promo: {'; '.join(line.product.promotions[:1])}" if line.product.promotions else ""
+        output.append(
+            f"- {line.ingredient}: {quantity} -> {line.units} x {line.product.name} "
+            f"({_money(line.product.price)} c/u) = {_money(line.subtotal)}{promo}"
+        )
+    output.append(f"Total estimado Disco: {_money(total)}")
+    if missing:
+        output.append("Revisar manualmente: " + ", ".join(missing))
+    return "\n".join(output)
+
+
 def _parse_product(raw: dict[str, Any]) -> DiscoProduct | None:
     item = (raw.get("items") or [{}])[0]
     seller = _default_seller(item.get("sellers") or [])
@@ -233,6 +258,12 @@ def _format_package(product: DiscoProduct) -> str:
         else product.package_quantity
     )
     return f"x {quantity} {product.package_unit}"
+
+
+def _format_quantity(value: float) -> str:
+    quantity = int(value) if value == int(value) else round(value, 1)
+    unit = "u" if value < 20 else "g/ml aprox."
+    return f"{quantity} {unit}"
 
 
 def _money(value: float) -> str:
