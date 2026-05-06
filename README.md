@@ -1,16 +1,16 @@
-# Menu Telegram Bot
+# Menú Familiar PWA
 
-Bot de Telegram para generar un menú semanal con desayuno, colación, almuerzo, merienda y cena, envío diario y lista de compra consolidada.
+App web instalable para generar un menú semanal con desayuno, colación, almuerzo, merienda y cena, recetas y lista de compra consolidada. Telegram queda como integración opcional si se configura un token.
 
 ## Qué hace
 
 - Guarda perfil del usuario.
 - Guarda condiciones alimentarias y preferencias.
-- Permite cargar ofertas manualmente desde Telegram.
+- Permite configurar perfil, reglas, stock y ofertas desde la PWA.
 - Genera menú semanal priorizando ingredientes en oferta.
 - Crea lista de compra semanal agregada.
 - Simula compra parcial en Disco usando precios públicos del catálogo online.
-- Envía el menú del día automáticamente.
+- Envía el menú del día automáticamente si Telegram está habilitado.
 - Permite aplicar presets familiares, por ejemplo `/preset sanda`.
 - Expone frontend instalable como PWA para heladera, tablet o celular.
 
@@ -24,7 +24,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Editá `.env` y pegá el token de BotFather:
+Editá `.env`. Para usar solo PWA no hace falta `TELEGRAM_BOT_TOKEN`; si querés Telegram, pegá el token de BotFather:
 
 ```env
 TELEGRAM_BOT_TOKEN=...
@@ -61,7 +61,10 @@ Rutas de app:
 /semana  semana completa
 /compra  compra por rubro y productos sugeridos
 /config  perfil, reglas, stock y ofertas
+/onboarding configuración inicial con 5 preguntas
 ```
+
+Si el usuario todavía no tiene perfil o reglas, la app lo manda a `/onboarding`. Desde `/config` se puede regenerar la semana, editar preferencias, cargar stock de alacena y sumar ofertas sin usar Telegram.
 
 ## Deploy gratis en Render
 
@@ -72,7 +75,7 @@ El proyecto incluye `render.yaml`. En Render:
 3. Configurá estas variables de entorno:
 
 ```env
-TELEGRAM_BOT_TOKEN=tu_token
+TELEGRAM_BOT_TOKEN=tu_token_opcional
 DEFAULT_CHAT_ID=tu_chat_id
 ALLOWED_CHAT_ID=tu_chat_id
 ALLOWED_CHAT_IDS=tu_chat_id,otro_chat_id
@@ -108,7 +111,9 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-## Comandos de Telegram
+## Telegram opcional
+
+Si `TELEGRAM_BOT_TOKEN` está vacío, Render levanta solo la PWA. Si lo configurás, también quedan disponibles estos comandos:
 
 ```text
 /start

@@ -6,16 +6,18 @@ from contextlib import asynccontextmanager
 from datetime import date, datetime
 from html import escape
 from typing import Any
+from urllib.parse import parse_qs, urlencode
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi import Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from telegram.ext import Application
 
 from .bot import DB, TZ, build_application
 from .disco import DEFAULT_SALES_CHANNEL, format_disco_product_list, simulate_disco_purchase
+from .parser import parse_offer
 from .planner import (
     DAYS,
     MEALS,
@@ -166,13 +168,15 @@ def offline() -> str:
 
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, pin: str | None = None, chat_id: int | None = None) -> str:
+def home(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
     _guard_web(request, pin)
     chat_id = _active_chat_id(chat_id)
+    user = DB.get_user(chat_id)
+    if _needs_onboarding(user):
+        return _redirect("/onboarding", chat_id, pin)
     today = _today()
     weekly = _get_or_create(chat_id, today)
     today_plan = weekly["plan"][today.weekday()]
-    user = DB.get_user(chat_id)
     preferences = DB.get_product_preferences(chat_id)
     pantry = DB.list_pantry_items(chat_id)
     shopping = format_shopping_list(weekly["shopping_list"], preferences, pantry)
@@ -180,15 +184,19 @@ def home(request: Request, pin: str | None = None, chat_id: int | None = None) -
 
 
 @app.get("/semana", response_class=HTMLResponse)
-def week_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> str:
+def week_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
     data = _app_data(request, pin, chat_id)
+    if data["needs_onboarding"]:
+        return _redirect("/onboarding", data["chat_id"], pin)
     body = _week_screen(data["weekly"]["plan"])
     return _app_shell("Semana", "semana", body)
 
 
 @app.get("/compra", response_class=HTMLResponse)
-def shopping_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> str:
+def shopping_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
     data = _app_data(request, pin, chat_id)
+    if data["needs_onboarding"]:
+        return _redirect("/onboarding", data["chat_id"], pin)
     shopping = format_shopping_list(
         data["weekly"]["shopping_list"],
         data["preferences"],
@@ -207,10 +215,175 @@ def shopping_page(request: Request, pin: str | None = None, chat_id: int | None 
 
 
 @app.get("/config", response_class=HTMLResponse)
-def config_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> str:
+def config_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
     data = _app_data(request, pin, chat_id)
-    body = _config_screen(data["chat_id"], data["user"], data["pantry"], DB.list_offers(data["chat_id"]))
+    if data["needs_onboarding"]:
+        return _redirect("/onboarding", data["chat_id"], pin)
+    body = _config_screen(data["chat_id"], pin, data["user"], data["pantry"], DB.list_offers(data["chat_id"]))
     return _app_shell("Config", "config", body)
+
+
+@app.get("/onboarding", response_class=HTMLResponse)
+def onboarding_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> str:
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id)
+    user = DB.get_user(active_chat_id)
+    return _app_shell(
+        "Config inicial",
+        "config",
+        _onboarding_screen(active_chat_id, pin, user),
+    )
+
+
+@app.post("/onboarding")
+async def save_onboarding(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id)
+    DB.authorize_user(active_chat_id)
+    DB.update_profile(
+        active_chat_id,
+        _clean_values(
+            {
+                "personas": _form_int(form, "personas", 2),
+                "integrantes": _form_str(form, "integrantes"),
+                "ciudad": _form_str(form, "ciudad"),
+                "provincia": _form_str(form, "provincia"),
+                "objetivo": _form_str(form, "objetivo"),
+                "timezone": "America/Argentina/Buenos_Aires",
+            }
+        ),
+    )
+    DB.update_conditions(
+        active_chat_id,
+        _clean_values(
+            {
+                "evitar": _form_str(form, "evitar"),
+                "preferencias": _form_str(form, "preferencias"),
+                "estilo": _form_str(form, "estilo"),
+                "compra": _form_str(form, "compra"),
+            }
+        ),
+    )
+    _clear_current_week(active_chat_id)
+    _get_or_create(active_chat_id, _today())
+    return _redirect("/semana", active_chat_id, pin)
+
+
+@app.post("/actions/generate")
+async def action_generate(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id)
+    _clear_current_week(active_chat_id)
+    _get_or_create(active_chat_id, _today())
+    return _redirect("/semana", active_chat_id, pin)
+
+
+@app.post("/actions/profile")
+async def action_profile(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id)
+    DB.update_profile(
+        active_chat_id,
+        _clean_values(
+            {
+                "personas": _form_int(form, "personas", 2),
+                "integrantes": _form_str(form, "integrantes"),
+                "ciudad": _form_str(form, "ciudad"),
+                "provincia": _form_str(form, "provincia"),
+                "objetivo": _form_str(form, "objetivo"),
+                "timezone": "America/Argentina/Buenos_Aires",
+            }
+        ),
+    )
+    _clear_current_week(active_chat_id)
+    return _redirect("/config", active_chat_id, pin)
+
+
+@app.post("/actions/conditions")
+async def action_conditions(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id)
+    DB.update_conditions(
+        active_chat_id,
+        _clean_values(
+            {
+                "preferencias": _form_str(form, "preferencias"),
+                "evitar": _form_str(form, "evitar"),
+                "restricciones": _form_str(form, "restricciones"),
+                "reglas": _form_str(form, "reglas"),
+                "chefs": _form_str(form, "chefs"),
+                "estilo": _form_str(form, "estilo"),
+                "compra": _form_str(form, "compra"),
+            }
+        ),
+    )
+    _clear_current_week(active_chat_id)
+    return _redirect("/config", active_chat_id, pin)
+
+
+@app.post("/actions/stock")
+async def action_stock(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    item = _form_str(form, "item")
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id)
+    if item.strip():
+        DB.upsert_pantry_item(active_chat_id, item, _form_float(form, "quantity", 1))
+        _clear_current_week(active_chat_id)
+    return _redirect("/config", active_chat_id, pin)
+
+
+@app.post("/actions/clear_stock")
+async def action_clear_stock(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id)
+    DB.clear_pantry(active_chat_id)
+    _clear_current_week(active_chat_id)
+    return _redirect("/config", active_chat_id, pin)
+
+
+@app.post("/actions/offers")
+async def action_offers(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    offer = _form_str(form, "offer")
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id)
+    if offer.strip():
+        item, price, note = parse_offer(offer)
+        DB.add_offer(active_chat_id, item, price, note)
+        _clear_current_week(active_chat_id)
+    return _redirect("/config", active_chat_id, pin)
+
+
+@app.post("/actions/clear_offers")
+async def action_clear_offers(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id)
+    DB.clear_offers(active_chat_id)
+    _clear_current_week(active_chat_id)
+    return _redirect("/config", active_chat_id, pin)
 
 
 @app.get("/api/menu")
@@ -257,17 +430,85 @@ def _app_data(request: Request, pin: str | None, chat_id: int | None) -> dict[st
     _guard_web(request, pin)
     active_chat_id = _active_chat_id(chat_id)
     today = _today()
-    weekly = _get_or_create(active_chat_id, today)
     user = DB.get_user(active_chat_id)
+    needs_onboarding = _needs_onboarding(user)
+    weekly = None if needs_onboarding else _get_or_create(active_chat_id, today)
     return {
         "chat_id": active_chat_id,
         "today": today,
+        "needs_onboarding": needs_onboarding,
         "weekly": weekly,
-        "today_plan": weekly["plan"][today.weekday()],
+        "today_plan": weekly["plan"][today.weekday()] if weekly else None,
         "user": user,
         "preferences": DB.get_product_preferences(active_chat_id),
         "pantry": DB.list_pantry_items(active_chat_id),
     }
+
+
+def _needs_onboarding(user: dict[str, Any]) -> bool:
+    return not user["profile"] or not user["conditions"]
+
+
+def _redirect(path: str, chat_id: int, pin: str | None = None) -> RedirectResponse:
+    return RedirectResponse(f"{path}{_context_query(chat_id, pin)}", status_code=303)
+
+
+def _context_query(chat_id: int, pin: str | None = None) -> str:
+    params: dict[str, str] = {"chat_id": str(chat_id)}
+    if pin:
+        params["pin"] = pin
+    return "?" + urlencode(params)
+
+
+def _hidden_context(chat_id: int, pin: str | None = None) -> str:
+    fields = [f'<input type="hidden" name="chat_id" value="{chat_id}">']
+    if pin:
+        fields.append(f'<input type="hidden" name="pin" value="{escape(pin, quote=True)}">')
+    return "".join(fields)
+
+
+def _clean_values(values: dict[str, Any]) -> dict[str, Any]:
+    clean: dict[str, Any] = {}
+    for key, value in values.items():
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped:
+                clean[key] = stripped
+        elif value not in (None, ""):
+            clean[key] = value
+    return clean
+
+
+def _form_str(form: Any, key: str, default: str = "") -> str:
+    value = form.get(key, default)
+    return str(value).strip() if value is not None else default
+
+
+def _parse_form(body: bytes) -> dict[str, str]:
+    parsed = parse_qs(body.decode("utf-8"), keep_blank_values=True)
+    return {key: values[-1] if values else "" for key, values in parsed.items()}
+
+
+def _form_int(form: Any, key: str, default: int = 0) -> int:
+    value = _form_str(form, key, str(default))
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _form_float(form: Any, key: str, default: float = 0) -> float:
+    value = _form_str(form, key, str(default)).replace(",", ".")
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
+def _clear_current_week(chat_id: int) -> None:
+    start = week_start_for(_today()).isoformat()
+    with DB.connect() as conn:
+        conn.execute("DELETE FROM weekly_plans WHERE chat_id = ? AND week_start = ?", (chat_id, start))
 
 
 def _get_or_create(chat_id: int, day: date) -> dict[str, Any]:
@@ -526,12 +767,77 @@ def _app_shell(title: str, active: str, body: str) -> str:
       font-size: 13px;
       overflow-wrap: anywhere;
     }}
+    form {{
+      margin: 0;
+    }}
+    label {{
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }}
+    input, textarea, select {{
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 10px 11px;
+    }}
+    textarea {{
+      min-height: 92px;
+      resize: vertical;
+      line-height: 1.35;
+    }}
+    .form-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }}
+    .form-grid .wide {{
+      grid-column: 1 / -1;
+    }}
+    .actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }}
+    .button {{
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 10px 14px;
+      font: inherit;
+      font-weight: 850;
+      text-decoration: none;
+    }}
+    .button.secondary {{
+      background: #fff;
+      border-color: var(--line);
+      color: var(--ink);
+    }}
+    .button.danger {{
+      background: #7a3328;
+      border-color: #7a3328;
+    }}
     @media (max-width: 900px) {{
       .screen {{ padding: 18px; }}
       .screen-header {{ align-items: start; }}
       h1 {{ font-size: 34px; }}
       .grid, .shopping-layout {{ grid-template-columns: 1fr; }}
-      .week-card {{ grid-template-columns: 1fr; }}
+      .week-card, .form-grid {{ grid-template-columns: 1fr; }}
       .kv {{ grid-template-columns: 1fr; }}
     }}
   </style>
@@ -627,12 +933,14 @@ def _shopping_screen(shopping: str, disco_text: str) -> str:
 
 def _config_screen(
     chat_id: int,
+    pin: str | None,
     user: dict[str, Any],
     pantry: dict[str, float],
     offers: list[dict[str, str | None]],
 ) -> str:
-    profile = _dict_details(user["profile"])
-    conditions = _dict_details(user["conditions"])
+    profile = user["profile"]
+    conditions = user["conditions"]
+    hidden = _hidden_context(chat_id, pin)
     stock = "".join(f"<div class=\"command\">{escape(item)} = {qty:g}</div>" for item, qty in pantry.items())
     if not stock:
         stock = "<div class=\"meta\">Sin stock cargado.</div>"
@@ -643,35 +951,175 @@ def _config_screen(
     if not offer_rows:
         offer_rows = "<div class=\"meta\">Sin ofertas cargadas.</div>"
     return f"""
+    <section class="card">
+      <h2>Acciones</h2>
+      <div class="actions">
+        <form method="post" action="/actions/generate">
+          {hidden}
+          <button class="button" type="submit">Regenerar semana</button>
+        </form>
+        <a class="button secondary" href="/semana{_context_query(chat_id, pin)}">Ver semana</a>
+        <a class="button secondary" href="/compra{_context_query(chat_id, pin)}">Ver compra</a>
+      </div>
+    </section>
+    <br>
     <section class="grid">
       <article class="card">
         <h2>Perfil</h2>
-        <dl class="kv">
-          <dt>Chat ID</dt><dd>{chat_id}</dd>
-        </dl>
-        {profile}
+        <form method="post" action="/actions/profile">
+          {hidden}
+          <div class="form-grid">
+            <label>Personas
+              <input name="personas" type="number" min="1" step="1" value="{escape(str(profile.get("personas", 2)), quote=True)}">
+            </label>
+            <label>Ciudad
+              <input name="ciudad" value="{escape(str(profile.get("ciudad", "")), quote=True)}">
+            </label>
+            <label>Provincia
+              <input name="provincia" value="{escape(str(profile.get("provincia", "")), quote=True)}">
+            </label>
+            <label>Objetivo
+              <input name="objetivo" value="{escape(str(profile.get("objetivo", "")), quote=True)}">
+            </label>
+            <label class="wide">Integrantes
+              <textarea name="integrantes">{escape(str(profile.get("integrantes", "")))}</textarea>
+            </label>
+          </div>
+          <div class="actions">
+            <button class="button" type="submit">Guardar perfil</button>
+          </div>
+        </form>
       </article>
       <article class="card">
         <h2>Reglas</h2>
-        {conditions}
+        <form method="post" action="/actions/conditions">
+          {hidden}
+          <div class="form-grid">
+            <label class="wide">Preferencias
+              <textarea name="preferencias">{escape(str(conditions.get("preferencias", "")))}</textarea>
+            </label>
+            <label class="wide">Evitar
+              <textarea name="evitar">{escape(str(conditions.get("evitar", "")))}</textarea>
+            </label>
+            <label class="wide">Restricciones
+              <textarea name="restricciones">{escape(str(conditions.get("restricciones", "")))}</textarea>
+            </label>
+            <label class="wide">Reglas de menú
+              <textarea name="reglas">{escape(str(conditions.get("reglas", "")))}</textarea>
+            </label>
+            <label class="wide">Chefs de inspiración
+              <input name="chefs" value="{escape(str(conditions.get("chefs", "")), quote=True)}">
+            </label>
+            <label class="wide">Estilo de platos
+              <textarea name="estilo">{escape(str(conditions.get("estilo", "")))}</textarea>
+            </label>
+            <label class="wide">Compra
+              <textarea name="compra">{escape(str(conditions.get("compra", "")))}</textarea>
+            </label>
+          </div>
+          <div class="actions">
+            <button class="button" type="submit">Guardar reglas</button>
+          </div>
+        </form>
       </article>
       <article class="card">
         <h2>Stock</h2>
         <div class="stack">{stock}</div>
+        <form method="post" action="/actions/stock">
+          {hidden}
+          <div class="form-grid">
+            <label>Producto
+              <input name="item" placeholder="arroz, huevos, leche">
+            </label>
+            <label>Cantidad
+              <input name="quantity" type="number" min="0" step="0.1" value="1">
+            </label>
+          </div>
+          <div class="actions">
+            <button class="button" type="submit">Agregar stock</button>
+          </div>
+        </form>
+        <form method="post" action="/actions/clear_stock">
+          {hidden}
+          <div class="actions">
+            <button class="button danger" type="submit">Vaciar stock</button>
+          </div>
+        </form>
       </article>
       <article class="card">
         <h2>Ofertas</h2>
         <div class="stack">{offer_rows}</div>
+        <form method="post" action="/actions/offers">
+          {hidden}
+          <label>Oferta
+            <input name="offer" placeholder="hamburguesas Paty $7550 pack 4">
+          </label>
+          <div class="actions">
+            <button class="button" type="submit">Agregar oferta</button>
+          </div>
+        </form>
+        <form method="post" action="/actions/clear_offers">
+          {hidden}
+          <div class="actions">
+            <button class="button danger" type="submit">Limpiar ofertas</button>
+          </div>
+        </form>
       </article>
       <article class="card">
-        <h2>Editar desde Telegram</h2>
-        <div class="stack">
-          <div class="command">/perfil personas=4, ciudad=Santa Clara del Mar</div>
-          <div class="command">/condiciones preferencias=milanesas pastas pollo</div>
-          <div class="command">/stock arroz=1, huevos=12</div>
-          <div class="command">/oferta leche zero lactosa 4x3</div>
-        </div>
+        <h2>Datos técnicos</h2>
+        <dl class="kv">
+          <dt>Usuario</dt><dd>{chat_id}</dd>
+          <dt>Zona horaria</dt><dd>America/Argentina/Buenos_Aires</dd>
+          <dt>App</dt><dd>PWA instalada desde el navegador</dd>
+        </dl>
       </article>
+    </section>
+    """
+
+
+def _onboarding_screen(chat_id: int, pin: str | None, user: dict[str, Any]) -> str:
+    profile = user["profile"]
+    conditions = user["conditions"]
+    hidden = _hidden_context(chat_id, pin)
+    return f"""
+    <section class="card">
+      <h2>Primera configuración</h2>
+      <p class="meta">Estas 5 respuestas dejan armada la base del menú, la compra y las recetas para este usuario.</p>
+      <form method="post" action="/onboarding">
+        {hidden}
+        <div class="form-grid">
+          <label>1. Cuántos comen
+            <input name="personas" type="number" min="1" step="1" value="{escape(str(profile.get("personas", 2)), quote=True)}">
+          </label>
+          <label>Ciudad
+            <input name="ciudad" value="{escape(str(profile.get("ciudad", "Mar del Plata")), quote=True)}">
+          </label>
+          <label>Provincia
+            <input name="provincia" value="{escape(str(profile.get("provincia", "Buenos Aires")), quote=True)}">
+          </label>
+          <label>2. Objetivo
+            <input name="objetivo" value="{escape(str(profile.get("objetivo", "bajar grasa y sostener proteína")), quote=True)}">
+          </label>
+          <label class="wide">Integrantes
+            <textarea name="integrantes">{escape(str(profile.get("integrantes", "2 adultos")))}</textarea>
+          </label>
+          <label class="wide">3. Qué evitar o cuidar
+            <textarea name="evitar">{escape(str(conditions.get("evitar", "kiwi, mucho lactosa, cerdo frecuente")))}</textarea>
+          </label>
+          <label class="wide">4. Qué les gusta comer
+            <textarea name="preferencias">{escape(str(conditions.get("preferencias", "comida argentina, carne, milanesas, pollo, pastas, arroz medido, verduras, frutas, postres Danette o Copa Cindor en oferta")))}</textarea>
+          </label>
+          <label class="wide">Estilo de cocina
+            <textarea name="estilo">{escape(str(conditions.get("estilo", "variado, rico, saludable en semana, más gustoso el finde, recetas para 2 porciones")))}</textarea>
+          </label>
+          <label class="wide">5. Cómo comprar
+            <textarea name="compra">{escape(str(conditions.get("compra", "armar compra semanal por rubro, preferir ofertas, paquetes de 500 g o 1 kg cuando corresponda, registrar sobrantes para la semana siguiente")))}</textarea>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="button" type="submit">Guardar y generar semana</button>
+        </div>
+      </form>
     </section>
     """
 
@@ -807,7 +1255,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       position: sticky;
       top: 0;
       z-index: 4;
-      display: none;
+      display: flex;
       gap: 8px;
       padding: 10px 18px;
       background: rgba(246, 244, 239, .94);
@@ -1078,7 +1526,6 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       line-height: 1.3;
     }}
     @media (max-width: 900px) {{
-      .app-nav {{ display: flex; }}
       main {{ grid-template-columns: 1fr; padding: 18px; }}
       .meals {{ grid-template-columns: 1fr; }}
       h1 {{ font-size: 34px; }}
@@ -1140,6 +1587,12 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
   </div>
   <script id="recipes-data" type="application/json">{recipes_json}</script>
   <script>
+    const params = window.location.search;
+    if (params) {{
+      document.querySelectorAll('.app-nav a').forEach((link) => {{
+        link.href = link.getAttribute('href') + params;
+      }});
+    }}
     const recipes = JSON.parse(document.getElementById('recipes-data').textContent);
     const modal = document.getElementById('recipe-modal');
     const title = document.getElementById('recipe-title');
