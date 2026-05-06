@@ -972,7 +972,6 @@ def _register_screen(users: list[dict[str, Any]], next_path: str, error: str | N
 
 def _app_shell(title: str, active: str, body: str) -> str:
     nav = _app_route_nav(active)
-    local_now = datetime.now(TZ if isinstance(TZ, ZoneInfo) else ZoneInfo("America/Argentina/Buenos_Aires"))
     return f"""<!doctype html>
 <html lang="es">
 <head>
@@ -1356,9 +1355,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
     <header class="screen-header">
       <div>
         <h1>{escape(title)}</h1>
-        <div class="meta">Menú Familiar · {escape(local_now.strftime("%d/%m/%Y"))}</div>
       </div>
-      <div class="time-pill">{escape(local_now.strftime("%H:%M"))}<span>GMT-3</span></div>
     </header>
     {body}
   </main>
