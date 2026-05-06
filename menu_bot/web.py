@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi import Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from telegram.ext import Application
 
 from .bot import DB, TZ, build_application
@@ -53,6 +53,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Menu Bot", lifespan=lifespan)
+PWA_CACHE_VERSION = "menu-bot-v1"
 
 CHEF_STYLES = {
     "paulina cocina": "Paulina Cocina: práctico, casero, rendidor y sin complicarla.",
@@ -62,6 +63,105 @@ CHEF_STYLES = {
     "donato de santis": "Donato De Santis: toque italiano, pastas cuidadas, salsa simple y buen queso.",
     "petersen": "Los Petersen: carnes bien tratadas, buen dorado, reposo y guarniciones clásicas.",
 }
+
+
+@app.get("/manifest.webmanifest")
+def manifest() -> Response:
+    payload = {
+        "name": "Menú Familiar",
+        "short_name": "Menú",
+        "description": "Menú semanal, recetas y compra familiar.",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "any",
+        "background_color": "#f6f4ef",
+        "theme_color": "#2f6f5e",
+        "icons": [
+            {
+                "src": "/icon.svg",
+                "sizes": "any",
+                "type": "image/svg+xml",
+                "purpose": "any maskable",
+            }
+        ],
+    }
+    return Response(json.dumps(payload, ensure_ascii=False), media_type="application/manifest+json")
+
+
+@app.get("/sw.js")
+def service_worker() -> Response:
+    script = f"""
+const CACHE_NAME = '{PWA_CACHE_VERSION}';
+const APP_SHELL = ['/', '/offline', '/manifest.webmanifest', '/icon.svg'];
+
+self.addEventListener('install', (event) => {{
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
+  self.skipWaiting();
+}});
+
+self.addEventListener('activate', (event) => {{
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+    )
+  );
+  self.clients.claim();
+}});
+
+self.addEventListener('fetch', (event) => {{
+  if (event.request.method !== 'GET') return;
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {{
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      }})
+      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/offline')))
+  );
+}});
+"""
+    return Response(script.strip(), media_type="application/javascript")
+
+
+@app.get("/icon.svg")
+def app_icon() -> Response:
+    svg = """
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#2f6f5e"/>
+  <path d="M152 126h208c18 0 32 14 32 32v220c0 18-14 32-32 32H152c-18 0-32-14-32-32V158c0-18 14-32 32-32Z" fill="#f6f4ef"/>
+  <path d="M176 178h160M176 238h128M176 298h160" stroke="#2f6f5e" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="352" cy="238" r="17" fill="#f3c969"/>
+  <circle cx="352" cy="298" r="17" fill="#f3c969"/>
+</svg>
+"""
+    return Response(svg.strip(), media_type="image/svg+xml")
+
+
+@app.get("/offline", response_class=HTMLResponse)
+def offline() -> str:
+    return """<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#2f6f5e">
+  <title>Menú sin conexión</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f6f4ef; color: #1c1b18; font-family: system-ui, sans-serif; }
+    main { width: min(520px, calc(100vw - 32px)); border: 1px solid #d8d1c4; border-radius: 8px; background: #fff; padding: 24px; }
+    h1 { margin: 0 0 10px; font-size: 28px; }
+    p { margin: 0; color: #68645d; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Sin conexión</h1>
+    <p>La app no pudo actualizar el menú. Cuando vuelva internet, abrila de nuevo para traer la última versión.</p>
+  </main>
+</body>
+</html>"""
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -232,6 +332,11 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="refresh" content="900">
+  <meta name="theme-color" content="#2f6f5e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Menú">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <title>Menú de hoy</title>
   <style>
     :root {{
@@ -258,6 +363,29 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       grid-template-columns: minmax(0, 1.35fr) minmax(340px, .65fr);
       gap: 24px;
       padding: 28px;
+    }}
+    .app-nav {{
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      display: none;
+      gap: 8px;
+      padding: 10px 18px;
+      background: rgba(246, 244, 239, .94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }}
+    .app-nav a {{
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+      text-decoration: none;
     }}
     header {{
       display: flex;
@@ -511,6 +639,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       line-height: 1.3;
     }}
     @media (max-width: 900px) {{
+      .app-nav {{ display: flex; }}
       main {{ grid-template-columns: 1fr; padding: 18px; }}
       .meals {{ grid-template-columns: 1fr; }}
       h1 {{ font-size: 34px; }}
@@ -519,8 +648,13 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
   </style>
 </head>
 <body>
+  <nav class="app-nav" aria-label="Navegación">
+    <a href="#hoy">Hoy</a>
+    <a href="#semana">Semana</a>
+    <a href="#compra">Compra</a>
+  </nav>
   <main>
-    <section>
+    <section id="hoy">
       <header>
         <div>
           <h1>Menú de hoy</h1>
@@ -532,11 +666,11 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       <section class="meals">{meal_cards}</section>
     </section>
     <aside>
-      <section class="panel">
+      <section class="panel" id="semana">
         <h3><span class="highlight">Semana</span></h3>
         {week_rows}
       </section>
-      <section class="panel">
+      <section class="panel" id="compra">
         <h3>Compra</h3>
         <div class="shopping">{shopping_sections}</div>
       </section>
@@ -610,6 +744,11 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
     document.addEventListener('keydown', (event) => {{
       if (event.key === 'Escape') closeRecipe();
     }});
+    if ('serviceWorker' in navigator) {{
+      window.addEventListener('load', () => {{
+        navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+      }});
+    }}
   </script>
 </body>
 </html>"""

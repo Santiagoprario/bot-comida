@@ -12,6 +12,7 @@ Bot de Telegram para generar un menú semanal con desayuno, colación, almuerzo,
 - Simula compra parcial en Disco usando precios públicos del catálogo online.
 - Envía el menú del día automáticamente.
 - Permite aplicar presets familiares, por ejemplo `/preset sanda`.
+- Expone frontend instalable como PWA para heladera, tablet o celular.
 
 ## Instalación
 
@@ -50,6 +51,8 @@ http://localhost:8000
 ```
 
 La pantalla se refresca sola cada 15 minutos.
+
+El frontend incluye manifest y service worker, por lo que puede instalarse como app desde el navegador compatible.
 
 ## Deploy gratis en Render
 
