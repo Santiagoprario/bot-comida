@@ -60,6 +60,7 @@ Rutas de app:
 /        menú de hoy
 /semana  semana completa
 /compra  compra por rubro y productos sugeridos
+/platos  platos creados por usuarios, creación y puntajes
 /config  perfil, reglas, stock y ofertas
 /onboarding configuración inicial con 5 preguntas
 /login   ingreso con email y contraseña
@@ -84,6 +85,13 @@ Compra editable:
 - En `/compra` podés marcar cada producto como comprado.
 - Podés cargar cantidad real comprada, sobrante y nota.
 - Si cargás sobrante, se guarda como stock para descontarlo de próximas compras.
+
+Platos de usuarios:
+
+- En `/platos` podés crear platos propios con ingredientes por porción.
+- Los platos públicos los ven otros usuarios.
+- Cada plato se puede puntuar de 1 a 5.
+- Los platos activos entran como candidatos cuando se regenera la semana y sus ingredientes pasan a la compra.
 
 ## Deploy gratis en Render
 

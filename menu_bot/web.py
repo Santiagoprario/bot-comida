@@ -102,7 +102,7 @@ def manifest() -> Response:
 def service_worker() -> Response:
     script = f"""
 const CACHE_NAME = '{PWA_CACHE_VERSION}';
-const APP_SHELL = ['/', '/semana', '/compra', '/config', '/login', '/register', '/offline', '/manifest.webmanifest', '/icon.svg'];
+const APP_SHELL = ['/', '/semana', '/compra', '/config', '/platos', '/login', '/register', '/offline', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {{
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -237,6 +237,17 @@ def config_page(request: Request, pin: str | None = None, chat_id: int | None = 
         return _redirect("/onboarding", data["chat_id"], pin)
     body = _config_screen(data["chat_id"], pin, data["user"], data["pantry"], DB.list_offers(data["chat_id"]))
     return _app_shell("Config", "config", body)
+
+
+@app.get("/platos", response_class=HTMLResponse)
+def dishes_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
+    if gate := _login_redirect_if_needed(request, pin):
+        return gate
+    data = _app_data(request, pin, chat_id)
+    if data["needs_onboarding"]:
+        return _redirect("/onboarding", data["chat_id"], pin)
+    body = _dishes_screen(data["chat_id"], pin, DB.list_community_dishes(data["chat_id"]))
+    return _app_shell("Platos", "platos", body)
 
 
 @app.get("/onboarding", response_class=HTMLResponse)
@@ -406,6 +417,51 @@ async def action_conditions(request: Request) -> RedirectResponse:
     )
     _clear_current_week(active_chat_id)
     return _redirect("/config", active_chat_id, pin)
+
+
+@app.post("/actions/dishes")
+async def action_create_dish(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id, request)
+    name = _form_str(form, "name")
+    prep = _form_str(form, "prep")
+    ingredients = _parse_ingredients(_form_str(form, "ingredients"))
+    if name and prep and ingredients:
+        DB.create_community_dish(
+            active_chat_id,
+            name,
+            _form_str(form, "slot", "cena"),
+            _form_str(form, "protein") or "usuario",
+            _parse_tags(_form_str(form, "tags")),
+            ingredients,
+            prep,
+            public=_form_str(form, "public") == "on",
+            active=_form_str(form, "active") == "on",
+        )
+        _clear_current_week(active_chat_id)
+    return _redirect("/platos", active_chat_id, pin)
+
+
+@app.post("/actions/rate_dish")
+async def action_rate_dish(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id, request)
+    dish_id = _form_int(form, "dish_id")
+    if dish_id:
+        DB.rate_community_dish(
+            dish_id,
+            active_chat_id,
+            _form_int(form, "rating", 5),
+            _form_str(form, "note") or None,
+        )
+        _clear_current_week(active_chat_id)
+    return _redirect("/platos", active_chat_id, pin)
 
 
 @app.post("/actions/stock")
@@ -731,6 +787,51 @@ def _optional_form_float(form: Any, key: str) -> float | None:
         return None
 
 
+def _parse_ingredients(raw: str) -> dict[str, float]:
+    ingredients: dict[str, float] = {}
+    for line in raw.replace(",", "\n").splitlines():
+        part = line.strip()
+        if not part:
+            continue
+        if "=" in part:
+            name, qty = part.split("=", 1)
+        elif ":" in part:
+            name, qty = part.split(":", 1)
+        else:
+            chunks = part.rsplit(" ", 1)
+            if len(chunks) != 2:
+                continue
+            name, qty = chunks
+        name = name.strip().lower()
+        qty_value = _quantity_number(qty)
+        if name and qty_value > 0:
+            ingredients[name] = qty_value
+    return ingredients
+
+
+def _quantity_number(raw: str) -> float:
+    cleaned = raw.strip().lower().replace(",", ".")
+    multiplier = 1
+    if cleaned.endswith("kg"):
+        multiplier = 1000
+        cleaned = cleaned[:-2]
+    elif cleaned.endswith("g"):
+        cleaned = cleaned[:-1]
+    elif cleaned.endswith("l") and not cleaned.endswith("ml"):
+        multiplier = 1000
+        cleaned = cleaned[:-1]
+    elif cleaned.endswith("ml"):
+        cleaned = cleaned[:-2]
+    try:
+        return float(cleaned.strip()) * multiplier
+    except ValueError:
+        return 0
+
+
+def _parse_tags(raw: str) -> list[str]:
+    return [tag.strip().lower() for tag in raw.replace(";", ",").split(",") if tag.strip()]
+
+
 def _clear_current_week(chat_id: int) -> None:
     start = week_start_for(_today()).isoformat()
     with DB.connect() as conn:
@@ -750,6 +851,7 @@ def _get_or_create(chat_id: int, day: date) -> dict[str, Any]:
         user["conditions"],
         offers,
         fetch_weather_context(user["profile"]),
+        DB.list_community_dishes(chat_id, active_only=True),
     )
     DB.save_weekly_plan(chat_id, start.isoformat(), plan, shopping)
     return {"plan": plan, "shopping_list": shopping}
@@ -1105,6 +1207,35 @@ def _app_shell(title: str, active: str, body: str) -> str:
       margin: 0;
       overflow-wrap: anywhere;
     }}
+    .dish-list {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }}
+    .dish-card {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf0;
+      padding: 14px;
+    }}
+    .dish-card h3 {{
+      margin: 0 0 8px;
+      font-size: 19px;
+    }}
+    .badge-row {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0;
+    }}
+    .badge {{
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 850;
+    }}
     .command {{
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -1212,7 +1343,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
       .screen {{ padding: 18px; }}
       .screen-header {{ align-items: start; }}
       h1 {{ font-size: 34px; }}
-      .grid, .shopping-layout {{ grid-template-columns: 1fr; }}
+      .grid, .shopping-layout, .dish-list {{ grid-template-columns: 1fr; }}
       .week-card, .form-grid {{ grid-template-columns: 1fr; }}
       .inline-form {{ grid-template-columns: 1fr; }}
       .kv {{ grid-template-columns: 1fr; }}
@@ -1253,6 +1384,7 @@ def _app_route_nav(active: str) -> str:
         ("hoy", "/", "Hoy"),
         ("semana", "/semana", "Semana"),
         ("compra", "/compra", "Compra"),
+        ("platos", "/platos", "Platos"),
         ("config", "/config", "Config"),
     ]
     links = "".join(
@@ -1473,6 +1605,100 @@ def _config_screen(
         </dl>
       </article>
     </section>
+    """
+
+
+def _dishes_screen(chat_id: int, pin: str | None, dishes: list[dict[str, Any]]) -> str:
+    hidden = _hidden_context(chat_id, pin)
+    dish_cards = "".join(_dish_card(chat_id, pin, dish) for dish in dishes)
+    if not dish_cards:
+        dish_cards = '<div class="meta">Todavía no hay platos cargados.</div>'
+    return f"""
+    <section class="grid">
+      <article class="card">
+        <h2>Crear plato</h2>
+        <form method="post" action="/actions/dishes">
+          {hidden}
+          <div class="form-grid">
+            <label class="wide">Nombre
+              <input name="name" placeholder="Ej: Pollo al limón con papas">
+            </label>
+            <label>Momento
+              <select name="slot">
+                <option value="almuerzo">Almuerzo</option>
+                <option value="cena">Cena</option>
+                <option value="desayuno">Desayuno</option>
+                <option value="merienda">Merienda</option>
+                <option value="colación">Colación</option>
+              </select>
+            </label>
+            <label>Proteína principal
+              <input name="protein" placeholder="pollo, nalga, huevo, lentejas">
+            </label>
+            <label class="wide">Ingredientes por porción
+              <textarea name="ingredients" placeholder="pollo=180&#10;papa=250&#10;limon=0.5"></textarea>
+            </label>
+            <label class="wide">Receta / preparación
+              <textarea name="prep" placeholder="Dorar el pollo, sumar limón, cocinar papas en horno o air fryer..."></textarea>
+            </label>
+            <label class="wide">Tags
+              <input name="tags" placeholder="proteico, rápido, gusto semanal">
+            </label>
+            <label class="checkline"><input name="public" type="checkbox" checked> Visible para otros</label>
+            <label class="checkline"><input name="active" type="checkbox" checked> Usarlo en mi menú</label>
+          </div>
+          <div class="actions">
+            <button class="button" type="submit">Crear plato</button>
+          </div>
+        </form>
+      </article>
+      <article class="card">
+        <h2>Cómo impacta</h2>
+        <dl class="kv">
+          <dt>Compra</dt><dd>Los ingredientes del plato se suman a la compra semanal si el menú lo usa.</dd>
+          <dt>Menú</dt><dd>Los platos activos entran como candidatos al regenerar la semana.</dd>
+          <dt>Puntaje</dt><dd>Los platos mejor puntuados tienen más prioridad.</dd>
+        </dl>
+      </article>
+    </section>
+    <br>
+    <section class="card">
+      <h2>Platos de la comunidad</h2>
+      <div class="dish-list">{dish_cards}</div>
+    </section>
+    """
+
+
+def _dish_card(chat_id: int, pin: str | None, dish: dict[str, Any]) -> str:
+    hidden = _hidden_context(chat_id, pin)
+    tags = "".join(f'<span class="badge">{escape(str(tag))}</span>' for tag in dish.get("tags", []))
+    ingredients = ", ".join(
+        f"{name}: {format_quantity(str(name), float(qty))}"
+        for name, qty in (dish.get("ingredients") or {}).items()
+    )
+    rating = f'{float(dish.get("avg_rating") or 0):.1f}'.rstrip("0").rstrip(".")
+    visibility = "público" if dish.get("public") else "privado"
+    active = "activo" if dish.get("active") else "inactivo"
+    return f"""
+    <article class="dish-card">
+      <h3>{escape(str(dish["name"]))}</h3>
+      <div class="meta">{escape(str(dish["slot"]).title())} · {escape(str(dish["protein"]))} · {visibility} · {active}</div>
+      <div class="badge-row">{tags}</div>
+      <div class="buy-notes">Ingredientes: {escape(ingredients)}</div>
+      <p class="meta">{escape(str(dish["prep"]))}</p>
+      <div class="meta">Puntaje: {rating}/5 · {int(dish.get("rating_count") or 0)} votos</div>
+      <form class="inline-form" method="post" action="/actions/rate_dish">
+        {hidden}
+        <input type="hidden" name="dish_id" value="{int(dish["id"])}">
+        <label>Puntos
+          <input name="rating" type="number" min="1" max="5" step="1" value="5">
+        </label>
+        <label>Nota
+          <input name="note" placeholder="rico, repetir, ajustar...">
+        </label>
+        <button class="button" type="submit">Puntuar</button>
+      </form>
+    </article>
     """
 
 
@@ -1999,6 +2225,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
     <a href="/">Hoy</a>
     <a href="/semana">Semana</a>
     <a href="/compra">Compra</a>
+    <a href="/platos">Platos</a>
     <a href="/config">Config</a>
     <form method="post" action="/logout"><button type="submit">Salir</button></form>
   </nav>

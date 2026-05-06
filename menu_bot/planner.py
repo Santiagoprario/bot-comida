@@ -292,6 +292,7 @@ def generate_week(
     conditions: dict[str, Any],
     offers: list[dict[str, str | None]],
     weather_context: dict[str, dict[str, float | str]] | None = None,
+    custom_meals: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, float]]:
     people = int(profile.get("personas") or 2)
     avoid = _words(f"{conditions.get('restricciones', '')} {conditions.get('evitar', '')}")
@@ -301,6 +302,7 @@ def generate_week(
     offer_words = _words(" ".join(offer["item"] or "" for offer in offers))
     delivery_day = _stable_delivery_day(profile, conditions, start)
     discovery_day = _stable_discovery_day(start, delivery_day)
+    custom_by_type = _custom_meals_by_type(custom_meals or [])
 
     plan: list[dict[str, Any]] = []
     shopping: defaultdict[str, float] = defaultdict(float)
@@ -329,7 +331,7 @@ def generate_week(
                 forced_tag = "nuevo"
             protein_scope = _protein_limited_slot(slot, meal_type)
             meal = _pick_meal(
-                MEALS[meal_type],
+                custom_by_type.get(meal_type, []) + MEALS[meal_type],
                 avoid,
                 preferred,
                 offer_words,
@@ -359,6 +361,35 @@ def generate_week(
 
     _add_household_items(shopping, start, people)
     return plan, dict(sorted(shopping.items()))
+
+
+def _custom_meals_by_type(dishes: list[dict[str, Any]]) -> dict[str, list[Meal]]:
+    grouped: dict[str, list[Meal]] = defaultdict(list)
+    for dish in dishes:
+        slot = str(dish.get("slot", "")).lower()
+        meal_type = "colación" if slot.startswith("colación") else slot
+        if meal_type not in MEALS:
+            continue
+        ingredients = {
+            str(name).strip().lower(): float(qty)
+            for name, qty in (dish.get("ingredients") or {}).items()
+            if str(name).strip()
+        }
+        if not ingredients:
+            continue
+        tags = tuple(str(tag).strip().lower() for tag in dish.get("tags", []) if str(tag).strip())
+        rating = float(dish.get("avg_rating") or 0)
+        rating_tags = ("usuario", "nuevo", "favorito") if rating >= 4 else ("usuario", "nuevo")
+        grouped[meal_type].append(
+            Meal(
+                str(dish["name"]),
+                str(dish.get("protein") or "usuario"),
+                tuple(dict.fromkeys(tags + rating_tags)),
+                ingredients,
+                str(dish.get("prep") or "Preparar según la receta cargada."),
+            )
+        )
+    return grouped
 
 
 def format_day(day: dict[str, Any]) -> str:

@@ -8,6 +8,17 @@ from pathlib import Path
 from typing import Any, Iterator
 
 
+def _dish_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    dish = dict(row)
+    dish["tags"] = json.loads(dish["tags"])
+    dish["ingredients"] = json.loads(dish["ingredients"])
+    dish["public"] = bool(dish["public"])
+    dish["active"] = bool(dish["active"])
+    dish["avg_rating"] = float(dish["avg_rating"])
+    dish["rating_count"] = int(dish["rating_count"])
+    return dish
+
+
 class Database:
     def __init__(self, path: str) -> None:
         self.path = Path(path)
@@ -118,6 +129,31 @@ class Database:
                     display_name TEXT,
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS community_dishes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    chat_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    slot TEXT NOT NULL,
+                    protein TEXT NOT NULL,
+                    tags TEXT NOT NULL DEFAULT '[]',
+                    ingredients TEXT NOT NULL DEFAULT '{}',
+                    prep TEXT NOT NULL,
+                    public INTEGER NOT NULL DEFAULT 1,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS dish_ratings (
+                    dish_id INTEGER NOT NULL,
+                    chat_id INTEGER NOT NULL,
+                    rating INTEGER NOT NULL,
+                    note TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY(dish_id, chat_id)
                 );
                 """
             )
@@ -438,6 +474,84 @@ class Database:
         with self.connect() as conn:
             row = conn.execute("SELECT COUNT(*) AS total FROM web_accounts").fetchone()
         return int(row["total"])
+
+    def create_community_dish(
+        self,
+        chat_id: int,
+        name: str,
+        slot: str,
+        protein: str,
+        tags: list[str],
+        ingredients: dict[str, float],
+        prep: str,
+        public: bool = True,
+        active: bool = True,
+    ) -> int:
+        self.ensure_user(chat_id)
+        with self.connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO community_dishes(
+                    chat_id, name, slot, protein, tags, ingredients, prep, public, active
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    chat_id,
+                    name.strip(),
+                    slot.strip().lower(),
+                    protein.strip(),
+                    json.dumps(tags, ensure_ascii=False),
+                    json.dumps(ingredients, ensure_ascii=False),
+                    prep.strip(),
+                    1 if public else 0,
+                    1 if active else 0,
+                ),
+            )
+        return int(cursor.lastrowid)
+
+    def list_community_dishes(self, viewer_chat_id: int | None = None, active_only: bool = False) -> list[dict[str, Any]]:
+        where = []
+        params: list[Any] = []
+        if viewer_chat_id is not None:
+            where.append("(dish.public = 1 OR dish.chat_id = ?)")
+            params.append(viewer_chat_id)
+        else:
+            where.append("dish.public = 1")
+        if active_only:
+            where.append("dish.active = 1")
+        where_sql = " AND ".join(where)
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT
+                    dish.*,
+                    COALESCE(AVG(rating.rating), 0) AS avg_rating,
+                    COUNT(rating.rating) AS rating_count
+                FROM community_dishes dish
+                LEFT JOIN dish_ratings rating ON rating.dish_id = dish.id
+                WHERE {where_sql}
+                GROUP BY dish.id
+                ORDER BY avg_rating DESC, rating_count DESC, dish.created_at DESC
+                """,
+                params,
+            ).fetchall()
+        return [_dish_from_row(row) for row in rows]
+
+    def rate_community_dish(self, dish_id: int, chat_id: int, rating: int, note: str | None = None) -> None:
+        bounded_rating = min(5, max(1, int(rating)))
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO dish_ratings(dish_id, chat_id, rating, note)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(dish_id, chat_id) DO UPDATE SET
+                    rating = excluded.rating,
+                    note = excluded.note,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (dish_id, chat_id, bounded_rating, note),
+            )
 
     def create_invite(self, created_by: int) -> str:
         self.authorize_user(created_by)
