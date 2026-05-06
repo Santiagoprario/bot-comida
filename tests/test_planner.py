@@ -2,6 +2,7 @@ from datetime import date
 
 from menu_bot.planner import format_shopping_list, generate_week, week_start_for, _protein_key
 from menu_bot.presets import get_preset
+from menu_bot.web import _parse_ingredients
 
 
 def test_week_start_for_monday():
@@ -94,3 +95,21 @@ def test_shopping_units_are_human_readable():
     assert "banana: 8 g" not in shopping
     assert "fruta de estación: 24 g" not in shopping
     assert "tomate: 52 u" not in shopping
+
+
+def test_custom_dish_ingredient_parser_accepts_spaced_units():
+    ingredients = _parse_ingredients(
+        """
+        pollo 180 g
+        papa: 0,5 kg
+        tomate=2 u
+        limon 1/2 unidad
+        aceite 20 ml
+        """
+    )
+
+    assert ingredients["pollo"] == 180
+    assert ingredients["papa"] == 500
+    assert ingredients["tomate"] == 2
+    assert ingredients["limon"] == 0.5
+    assert ingredients["aceite"] == 20

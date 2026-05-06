@@ -4,6 +4,7 @@ import os
 import json
 import hashlib
 import hmac
+import re
 import secrets
 import smtplib
 from contextlib import asynccontextmanager
@@ -61,7 +62,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Mesa Lista", lifespan=lifespan)
-PWA_CACHE_VERSION = "menu-bot-v3"
+PWA_CACHE_VERSION = "menu-bot-v4"
 SESSION_COOKIE = "menu_session"
 CHAT_COOKIE = "menu_chat_id"
 PASSWORD_ITERATIONS = 210_000
@@ -202,9 +203,8 @@ def _auth_style() -> str:
     * { box-sizing: border-box; }
     body { margin:0; min-height:100vh; display:grid; place-items:center; background:radial-gradient(circle at 15% 12%, rgba(255,209,102,.34), transparent 28%), linear-gradient(135deg, #fff4e8 0%, #fffdf8 52%, #eaf1ff 100%); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:18px; }
     main { width:min(500px, 100%); background:rgba(255,253,248,.96); border:1px solid var(--line); border-radius:8px; padding:18px; box-shadow:0 18px 44px rgba(83,56,111,.14); }
-    .brand-art { display:block; width:100%; aspect-ratio: 16 / 8.8; object-fit:cover; border:1px solid var(--line); border-radius:8px; margin-bottom:16px; background:#fff4e8; }
+    .brand-art { display:block; width:100%; aspect-ratio: 16 / 8.8; object-fit:contain; border:1px solid var(--line); border-radius:8px; margin-bottom:16px; background:#fff4e8; }
     .brand-mark { display:inline-flex; align-items:center; gap:8px; margin-bottom:8px; color:var(--accent-strong); font-size:13px; font-weight:900; text-transform:uppercase; }
-    .brand-dot { width:12px; height:12px; border-radius:50%; background:var(--butter); box-shadow:14px 0 0 var(--accent), 28px 0 0 var(--blue); }
     h1 { margin:0 0 8px; font-size:34px; line-height:1; letter-spacing:0; color:var(--plum); }
     p { margin:0 0 18px; color:var(--muted); line-height:1.35; }
     label { display:flex; flex-direction:column; gap:6px; margin-top:12px; color:var(--muted); font-size:13px; font-weight:850; }
@@ -512,7 +512,7 @@ async def action_create_dish(request: Request) -> RedirectResponse:
     name = _form_str(form, "name")
     prep = _form_str(form, "prep")
     ingredients = _parse_ingredients(_form_str(form, "ingredients"))
-    if name and prep and ingredients:
+    if name and prep:
         DB.create_community_dish(
             active_chat_id,
             name,
@@ -915,7 +915,7 @@ def _optional_form_float(form: Any, key: str) -> float | None:
 
 def _parse_ingredients(raw: str) -> dict[str, float]:
     ingredients: dict[str, float] = {}
-    for line in raw.replace(",", "\n").splitlines():
+    for line in re.split(r"[\n;]+|,(?=\s*[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])", raw):
         part = line.strip()
         if not part:
             continue
@@ -924,10 +924,15 @@ def _parse_ingredients(raw: str) -> dict[str, float]:
         elif ":" in part:
             name, qty = part.split(":", 1)
         else:
-            chunks = part.rsplit(" ", 1)
-            if len(chunks) != 2:
-                continue
-            name, qty = chunks
+            chunks = part.rsplit(" ", 2)
+            if len(chunks) == 3 and chunks[-1].lower() in {"g", "gr", "kg", "ml", "l", "u", "un", "unidad", "unidades"}:
+                name = chunks[0]
+                qty = f"{chunks[1]}{chunks[2]}"
+            else:
+                chunks = part.rsplit(" ", 1)
+                if len(chunks) != 2:
+                    continue
+                name, qty = chunks
         name = name.strip().lower()
         qty_value = _quantity_number(qty)
         if name and qty_value > 0:
@@ -936,7 +941,8 @@ def _parse_ingredients(raw: str) -> dict[str, float]:
 
 
 def _quantity_number(raw: str) -> float:
-    cleaned = raw.strip().lower().replace(",", ".")
+    cleaned = raw.strip().lower().replace(",", ".").replace(" ", "")
+    cleaned = cleaned.replace("unidades", "u").replace("unidad", "u").replace("un", "u").replace("gr", "g")
     multiplier = 1
     if cleaned.endswith("kg"):
         multiplier = 1000
@@ -948,6 +954,14 @@ def _quantity_number(raw: str) -> float:
         cleaned = cleaned[:-1]
     elif cleaned.endswith("ml"):
         cleaned = cleaned[:-2]
+    elif cleaned.endswith("u"):
+        cleaned = cleaned[:-1]
+    if "/" in cleaned:
+        numerator, denominator = cleaned.split("/", 1)
+        try:
+            return (float(numerator) / float(denominator)) * multiplier
+        except ValueError:
+            return 0
     try:
         return float(cleaned.strip()) * multiplier
     except ValueError:
@@ -1011,7 +1025,7 @@ def _login_screen(next_path: str, error: str | None = None) -> str:
 <body>
   <main>
     <img class="brand-art" src="/brand-plate.svg" alt="">
-    <div class="brand-mark"><span class="brand-dot"></span> Mesa Lista</div>
+    <div class="brand-mark">Mesa Lista</div>
     <h1>Qué comemos hoy</h1>
     <p>Tu menú, recetas y compra de la semana en un lugar simple.</p>
     {error_html}
@@ -1052,7 +1066,7 @@ def _register_screen(users: list[dict[str, Any]], next_path: str, error: str | N
 <body>
   <main>
     <img class="brand-art" src="/brand-plate.svg" alt="">
-    <div class="brand-mark"><span class="brand-dot"></span> Mesa Lista</div>
+    <div class="brand-mark">Mesa Lista</div>
     <h1>Crear cuenta</h1>
     <p>Te mandamos un código al email y dejamos tu perfil listo para generar menús.</p>
     {error_html}
@@ -1095,7 +1109,7 @@ def _verify_screen(email: str, next_path: str, error: str | None = None) -> str:
 <body>
   <main>
     <img class="brand-art" src="/brand-plate.svg" alt="">
-    <div class="brand-mark"><span class="brand-dot"></span> Mesa Lista</div>
+    <div class="brand-mark">Mesa Lista</div>
     <h1>Activar cuenta</h1>
     <p>Ingresá el código de 6 dígitos que enviamos a {escape(email or "tu email")}.</p>
     {error_html}
@@ -1811,7 +1825,8 @@ def _dishes_screen(chat_id: int, pin: str | None, dishes: list[dict[str, Any]]) 
     </section>
     <br>
     <section class="card">
-      <h2>Platos de la comunidad</h2>
+      <h2>Mis platos y comunidad</h2>
+      <p class="meta">Acá aparecen tus platos y los platos marcados como visibles para otros usuarios.</p>
       <div class="dish-list">{dish_cards}</div>
     </section>
     """
@@ -1824,6 +1839,8 @@ def _dish_card(chat_id: int, pin: str | None, dish: dict[str, Any]) -> str:
         f"{name}: {format_quantity(str(name), float(qty))}"
         for name, qty in (dish.get("ingredients") or {}).items()
     )
+    if not ingredients:
+        ingredients = "sin ingredientes cargados"
     rating = f'{float(dish.get("avg_rating") or 0):.1f}'.rstrip("0").rstrip(".")
     visibility = "público" if dish.get("public") else "privado"
     active = "activo" if dish.get("active") else "inactivo"
@@ -2141,17 +2158,10 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       font-weight: 900;
       text-transform: uppercase;
     }}
-    .brand-dot {{
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--warm);
-      box-shadow: 12px 0 0 var(--accent), 24px 0 0 var(--blue);
-    }}
     .plate-art {{
       width: 150px;
       aspect-ratio: 1 / 1;
-      object-fit: cover;
+      object-fit: contain;
       border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: 0 12px 28px rgba(83, 56, 111, .12);
@@ -2435,7 +2445,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       <header>
         <div class="today-visual">
           <div>
-            <div class="brand-chip"><span class="brand-dot"></span> Mesa Lista</div>
+            <div class="brand-chip">Mesa Lista</div>
             <h1>Menú de hoy</h1>
             <div class="date">{escape(today_plan["dia"].title())} · {escape(today_plan["fecha"])}</div>
             <div class="date">{escape(format_weather_summary(today_plan.get("clima")))}</div>
