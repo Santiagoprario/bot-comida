@@ -86,6 +86,117 @@ HOUSEHOLD_ROTATION: list[dict[str, float]] = [
     {"algodon": 1, "alcohol": 1, "separadores freezer": 1},
 ]
 
+SHOPPING_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "Carnes y proteínas",
+        (
+            "asado",
+            "atún",
+            "bife",
+            "bola de lomo",
+            "cuadrada",
+            "cuadril",
+            "entraña",
+            "hamburguesas",
+            "huevo",
+            "lomo",
+            "merluza",
+            "nalga",
+            "peceto",
+            "pechuga",
+            "pollo",
+            "roast beef",
+            "suprema",
+            "vacío",
+        ),
+    ),
+    (
+        "Frutas y verduras",
+        (
+            "banana",
+            "batata",
+            "cebolla",
+            "espinaca",
+            "fruta",
+            "lechuga",
+            "limon",
+            "palta",
+            "papa",
+            "pepino",
+            "pimiento",
+            "rucula",
+            "tomate",
+            "zanahoria",
+            "zapallo",
+        ),
+    ),
+    (
+        "Lácteos",
+        (
+            "dannette",
+            "leche",
+            "manteca",
+            "muzzarella",
+            "queso",
+            "ricota",
+            "yogur",
+        ),
+    ),
+    (
+        "Almacén",
+        (
+            "arroz",
+            "café",
+            "cafe",
+            "cous cous",
+            "dulce de leche",
+            "fideos",
+            "galletas",
+            "garbanzos",
+            "granola",
+            "lentejas",
+            "maní",
+            "mantequilla",
+            "mermelada",
+            "pan rallado",
+            "rebozador",
+            "tomate perita lata",
+        ),
+    ),
+    (
+        "Panificados y masas",
+        (
+            "pan",
+            "prepizza",
+            "tapa",
+            "tortillas",
+        ),
+    ),
+    (
+        "Congelados",
+        (
+            "mcCain",
+            "papas tipo",
+        ),
+    ),
+    (
+        "Limpieza e higiene",
+        (
+            "algodon",
+            "alcohol",
+            "desodorante",
+            "detergente",
+            "jabon",
+            "limpiavidrios",
+            "pano multiuso",
+            "papel higienico",
+            "pasta dental",
+            "rollo de cocina",
+            "separadores",
+        ),
+    ),
+)
+
 
 def week_start_for(day: date) -> date:
     return day - timedelta(days=day.weekday())
@@ -194,7 +305,7 @@ def format_shopping_list(
     preferences: dict[str, dict[str, Any]] | None = None,
     pantry: dict[str, float] | None = None,
 ) -> str:
-    lines = ["Compra semanal"]
+    grouped: dict[str, list[str]] = defaultdict(list)
     pantry = pantry or {}
     for item, qty in shopping.items():
         owned = pantry.get(item.lower(), 0)
@@ -206,7 +317,18 @@ def format_shopping_list(
         preferred = _preferred_product_for(item, preferences or {})
         suffix = f" | sugerido: {preferred}" if preferred else ""
         pantry_note = f" | descuenta stock: {owned:g}" if owned else ""
-        lines.append(f"- {item}: {pretty_qty} {unit}{suffix}{pantry_note}")
+        grouped[_shopping_category_for(item)].append(f"- {item}: {pretty_qty} {unit}{suffix}{pantry_note}")
+
+    lines = ["Compra semanal"]
+    for category, _keywords in SHOPPING_CATEGORIES:
+        entries = grouped.pop(category, [])
+        if entries:
+            lines.append(f"\n{category}")
+            lines.extend(sorted(entries))
+    if grouped:
+        lines.append("\nVarios")
+        for entries in grouped.values():
+            lines.extend(sorted(entries))
     if len(lines) == 1:
         lines.append("- Sin compras pendientes según el stock cargado.")
     return "\n".join(lines)
@@ -252,6 +374,17 @@ def _preferred_product_for(item: str, preferences: dict[str, dict[str, Any]]) ->
         if normalized_item in ingredient
     ]
     return sorted(contains_preference, reverse=True)[0][1] if contains_preference else None
+
+
+def _shopping_category_for(item: str) -> str:
+    normalized = _normalize_text(item)
+    matches: list[tuple[int, str]] = []
+    for category, keywords in SHOPPING_CATEGORIES:
+        for keyword in keywords:
+            normalized_keyword = _normalize_text(keyword)
+            if normalized_keyword in normalized:
+                matches.append((len(normalized_keyword), category))
+    return sorted(matches, reverse=True)[0][1] if matches else "Varios"
 
 
 def _pick_meal(

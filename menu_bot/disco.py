@@ -4,6 +4,7 @@ import json
 import math
 from dataclasses import dataclass
 from typing import Any
+from unicodedata import normalize
 from urllib.parse import quote
 
 import httpx
@@ -11,6 +12,15 @@ import httpx
 
 DISCO_SEARCH_URL = "https://www.disco.com.ar/api/catalog_system/pub/products/search"
 DEFAULT_SALES_CHANNEL = "33"
+DISCO_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Carnes y proteínas", ("asado", "atún", "bife", "hamburguesa", "huevo", "merluza", "milanesa", "nalga", "pollo", "vacío")),
+    ("Frutas y verduras", ("banana", "batata", "cebolla", "espinaca", "fruta", "lechuga", "palta", "papa", "pepino", "pimiento", "rucula", "tomate", "zanahoria", "zapallo")),
+    ("Lácteos", ("danette", "leche", "manteca", "queso", "ricota", "yogur")),
+    ("Almacén", ("arroz", "café", "cafe", "cous cous", "dulce", "fideos", "galletas", "garbanzos", "granola", "lentejas", "maní", "mermelada", "rebozador")),
+    ("Panificados y masas", ("pan", "prepizza", "tapa", "tortillas")),
+    ("Congelados", ("mccain", "papas tipo")),
+    ("Limpieza e higiene", ("algodon", "alcohol", "desodorante", "detergente", "jabon", "limpiavidrios", "pano", "papel", "pasta dental", "rollo", "separadores")),
+)
 
 
 @dataclass(frozen=True)
@@ -131,16 +141,28 @@ def format_disco_product_list(lines: list[DiscoLine], missing: list[str], sales_
         f"Productos sugeridos en Disco (sc={sales_channel})",
         "Estimado por productos reales del catálogo online.",
     ]
+    grouped: dict[str, list[str]] = {}
     for line in lines:
         quantity = _format_quantity(line.quantity)
         if not line.product:
-            output.append(f"- {line.ingredient}: {quantity} -> sin producto sugerido")
+            grouped.setdefault(_shopping_category_for(line.ingredient), []).append(
+                f"- {line.ingredient}: {quantity} -> sin producto sugerido"
+            )
             continue
         promo = f" | promo: {'; '.join(line.product.promotions[:1])}" if line.product.promotions else ""
-        output.append(
+        grouped.setdefault(_shopping_category_for(line.ingredient), []).append(
             f"- {line.ingredient}: {quantity} -> {line.units} x {line.product.name} "
             f"({_money(line.product.price)} c/u) = {_money(line.subtotal)}{promo}"
         )
+    for category, _keywords in DISCO_CATEGORIES:
+        entries = grouped.pop(category, [])
+        if entries:
+            output.append(f"\n{category}")
+            output.extend(sorted(entries))
+    if grouped:
+        output.append("\nVarios")
+        for entries in grouped.values():
+            output.extend(sorted(entries))
     output.append(f"Total estimado Disco: {_money(total)}")
     if missing:
         output.append("Revisar manualmente: " + ", ".join(missing))
@@ -152,7 +174,7 @@ def _parse_product(raw: dict[str, Any]) -> DiscoProduct | None:
     seller = _default_seller(item.get("sellers") or [])
     offer = seller.get("commertialOffer") or {}
     price = _safe_float(offer.get("Price"))
-    if price is None:
+    if price is None or price <= 0:
         return None
 
     product_data = _json_first(raw.get("ProductData"))
@@ -229,6 +251,17 @@ def _search_query_for(ingredient: str) -> str:
     return replacements.get(ingredient, ingredient)
 
 
+def _shopping_category_for(item: str) -> str:
+    normalized = _normalize_text(item)
+    matches: list[tuple[int, str]] = []
+    for category, keywords in DISCO_CATEGORIES:
+        for keyword in keywords:
+            normalized_keyword = _normalize_text(keyword)
+            if normalized_keyword in normalized:
+                matches.append((len(normalized_keyword), category))
+    return sorted(matches, reverse=True)[0][1] if matches else "Varios"
+
+
 def _match_score(product: DiscoProduct, query: str) -> int:
     haystack = f"{product.name} {product.brand}".lower()
     score = 0
@@ -276,3 +309,7 @@ def _safe_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _normalize_text(value: str) -> str:
+    return "".join(char for char in normalize("NFD", value.lower()) if char.isascii())
