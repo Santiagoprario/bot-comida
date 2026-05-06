@@ -147,6 +147,56 @@ def _today() -> date:
     return datetime.now(TZ if isinstance(TZ, ZoneInfo) else ZoneInfo("America/Argentina/Buenos_Aires")).date()
 
 
+def _shopping_markup(shopping: str) -> str:
+    groups: list[tuple[str, list[str]]] = []
+    current_title = "Varios"
+    current_items: list[str] = []
+
+    def flush() -> None:
+        nonlocal current_items
+        if current_items:
+            groups.append((current_title, current_items))
+            current_items = []
+
+    for raw_line in shopping.splitlines()[1:]:
+        line = raw_line.strip()
+        if not line:
+            continue
+        if not line.startswith("-"):
+            flush()
+            current_title = line
+            continue
+        current_items.append(_shopping_item_markup(line.removeprefix("- ").strip()))
+    flush()
+
+    return "\n".join(
+        f"""
+        <section class="shopping-group">
+          <h4>{escape(title)}</h4>
+          <ul class="shopping-list">{''.join(items)}</ul>
+        </section>
+        """
+        for title, items in groups
+    )
+
+
+def _shopping_item_markup(line: str) -> str:
+    main, *notes = [part.strip() for part in line.split(" | ")]
+    if ": comprar " in main:
+        item, quantity = main.split(": comprar ", 1)
+    elif ": " in main:
+        item, quantity = main.split(": ", 1)
+    else:
+        item, quantity = main, ""
+    notes_html = f"<div class=\"buy-notes\">{escape(' · '.join(notes))}</div>" if notes else ""
+    return (
+        "<li>"
+        f"<div class=\"buy-line\"><span>{escape(item)}</span><span>{escape(quantity)}</span></div>"
+        f"{notes_html}"
+        "</li>"
+    )
+
+
 def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str, conditions: dict[str, Any]) -> str:
     meals = today_plan["comidas"]
     chef_preferences = _chef_preferences(conditions)
@@ -172,11 +222,9 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
         """
         for day in week
     )
-    shopping_items = "\n".join(
-        f"<li>{escape(line.removeprefix('- ').strip())}</li>"
-        for line in shopping.splitlines()[1:]
-    )
-    now = datetime.now().strftime("%H:%M")
+    shopping_sections = _shopping_markup(shopping)
+    local_now = datetime.now(TZ if isinstance(TZ, ZoneInfo) else ZoneInfo("America/Argentina/Buenos_Aires"))
+    now = local_now.strftime("%H:%M")
     recipes_json = escape(json.dumps(recipes, ensure_ascii=False), quote=False)
     return f"""<!doctype html>
 <html lang="es">
@@ -240,6 +288,13 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       font-weight: 700;
       min-width: 76px;
       text-align: center;
+    }}
+    .tz {{
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
     }}
     .meals {{
       display: grid;
@@ -320,16 +375,58 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
     .day:first-of-type {{ border-top: 0; }}
     .day strong {{ color: var(--accent); grid-row: span 2; }}
     .day span {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-    ul {{
-      margin: 0;
-      padding-left: 18px;
-      max-height: 320px;
+    .shopping {{
+      max-height: 360px;
       overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-right: 4px;
     }}
-    li {{
-      margin: 8px 0;
+    .shopping-group {{
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }}
+    .shopping-group:first-child {{ border-top: 0; padding-top: 0; }}
+    .shopping-group h4 {{
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }}
+    .shopping-list {{
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }}
+    .shopping-list li {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 10px;
+      background: #fbfaf7;
       font-size: 14px;
       line-height: 1.25;
+    }}
+    .buy-line {{
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 800;
+    }}
+    .buy-line span:last-child {{
+      color: var(--accent);
+      text-align: right;
+      flex-shrink: 0;
+    }}
+    .buy-notes {{
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
     }}
     .highlight {{
       background: var(--warm);
@@ -430,7 +527,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
           <div class="date">{escape(today_plan["dia"].title())} · {escape(today_plan["fecha"])}</div>
           <div class="date">{escape(format_weather_summary(today_plan.get("clima")))}</div>
         </div>
-        <div class="time">{escape(now)}</div>
+        <div class="time">{escape(now)}<span class="tz">GMT-3</span></div>
       </header>
       <section class="meals">{meal_cards}</section>
     </section>
@@ -441,7 +538,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       </section>
       <section class="panel">
         <h3>Compra</h3>
-        <ul>{shopping_items}</ul>
+        <div class="shopping">{shopping_sections}</div>
       </section>
     </aside>
   </main>

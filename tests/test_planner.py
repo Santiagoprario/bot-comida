@@ -85,12 +85,12 @@ def test_shopping_units_are_human_readable():
         }
     )
 
-    assert "banana: 8 u" in shopping
-    assert "fruta de estación: 24 u" in shopping
-    assert "tomate: 7.8 kg aprox." in shopping
-    assert "tomate perita lata: 800 g" in shopping
-    assert "nalga para milanesa: 720 g" in shopping
-    assert "leche zero lactosa: 1.4 L" in shopping
+    assert "banana: comprar 8 u" in shopping
+    assert "fruta de estación: comprar 24 u" in shopping
+    assert "tomate: comprar 8 kg aprox. | necesario: 7.8 kg aprox. | sobra: 200 g" in shopping
+    assert "tomate perita lata: comprar 1 kg | necesario: 800 g | sobra: 200 g" in shopping
+    assert "nalga para milanesa: comprar 1 kg | necesario: 720 g | sobra: 280 g" in shopping
+    assert "leche zero lactosa: comprar 2 L | necesario: 1.4 L | sobra: 600 ml" in shopping
     assert "banana: 8 g" not in shopping
     assert "fruta de estación: 24 g" not in shopping
     assert "tomate: 52 u" not in shopping

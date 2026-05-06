@@ -396,11 +396,16 @@ def format_shopping_list(
         remaining = max(qty - owned, 0)
         if remaining == 0 and owned:
             continue
-        pretty_qty = format_quantity(item, remaining)
+        needed_qty = format_quantity(item, remaining)
+        buy_qty, leftover = _purchase_quantity(item, remaining)
+        pretty_qty = format_quantity(item, buy_qty)
+        quantity_note = _purchase_note(item, needed_qty, leftover)
         preferred = _preferred_product_for(item, preferences or {})
         suffix = f" | sugerido: {preferred}" if preferred else ""
         pantry_note = f" | descuenta stock: {owned:g}" if owned else ""
-        grouped[_shopping_category_for(item)].append(f"- {item}: {pretty_qty}{suffix}{pantry_note}")
+        grouped[_shopping_category_for(item)].append(
+            f"- {item}: comprar {pretty_qty}{quantity_note}{suffix}{pantry_note}"
+        )
 
     lines = ["Compra semanal"]
     for category, _keywords in SHOPPING_CATEGORIES:
@@ -478,6 +483,52 @@ def format_quantity(item: str, quantity: float) -> str:
         unit = "kg"
     pretty = int(converted) if converted == int(converted) else round(converted, 2)
     return f"{pretty:g} {unit}"
+
+
+def _purchase_quantity(item: str, needed: float) -> tuple[float, float]:
+    if needed <= 0:
+        return 0, 0
+    unit_weight = _unit_weight_for_item(item)
+    if unit_weight and needed >= 8:
+        needed_weight = needed * unit_weight
+        buy_weight = _round_up(needed_weight, 500)
+        return buy_weight / unit_weight, buy_weight - needed_weight
+
+    unit = _unit_for_item(item)
+    if unit == "g":
+        buy_weight = _round_up(needed, 500)
+        return buy_weight, buy_weight - needed
+    if unit == "ml":
+        buy_volume = _round_up(needed, 1000)
+        return buy_volume, buy_volume - needed
+    return needed, 0
+
+
+def _purchase_note(item: str, needed_qty: str, leftover: float) -> str:
+    if leftover <= 0:
+        return ""
+    return f" | necesario: {needed_qty} | sobra: {_format_leftover(item, leftover)}"
+
+
+def _format_leftover(item: str, leftover: float) -> str:
+    if _unit_weight_for_item(item):
+        converted = leftover / 1000 if leftover >= 1000 else leftover
+        unit = "kg" if leftover >= 1000 else "g"
+    else:
+        unit = _unit_for_item(item)
+        converted = leftover
+        if unit == "ml" and leftover >= 1000:
+            converted = leftover / 1000
+            unit = "L"
+        elif unit == "g" and leftover >= 1000:
+            converted = leftover / 1000
+            unit = "kg"
+    pretty = int(converted) if converted == int(converted) else round(converted, 2)
+    return f"{pretty:g} {unit}"
+
+
+def _round_up(value: float, step: int) -> int:
+    return int(((value + step - 1) // step) * step)
 
 
 def _unit_weight_for_item(item: str) -> float | None:
