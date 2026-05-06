@@ -62,6 +62,8 @@ Rutas de app:
 /compra  compra por rubro y productos sugeridos
 /config  perfil, reglas, stock y ofertas
 /onboarding configuración inicial con 5 preguntas
+/login   ingreso con email y contraseña
+/register creación de cuenta web
 ```
 
 Si el usuario todavía no tiene perfil o reglas, la app lo manda a `/onboarding`. Desde `/config` se puede regenerar la semana, editar preferencias, cargar stock de alacena y sumar ofertas sin usar Telegram.
@@ -70,9 +72,12 @@ Login web:
 
 ```text
 /login
+/register
 ```
 
-Si `DASHBOARD_PIN` está configurado, la PWA pide PIN y guarda sesión en una cookie. También permite elegir qué perfil familiar usar en esa pantalla.
+La PWA usa cuentas con email y contraseña. La contraseña se guarda hasheada con PBKDF2-SHA256 y la sesión queda en cookie firmada.
+
+`DASHBOARD_PIN` queda como PIN de alta para crear cuentas nuevas. Una cuenta puede vincularse a un perfil familiar existente o crear un perfil nuevo, que después completa `/onboarding`.
 
 Compra editable:
 

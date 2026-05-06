@@ -110,6 +110,15 @@ class Database:
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY(chat_id, week_start, item)
                 );
+
+                CREATE TABLE IF NOT EXISTS web_accounts (
+                    email TEXT PRIMARY KEY,
+                    chat_id INTEGER NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    display_name TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
                 """
             )
 
@@ -380,6 +389,55 @@ class Database:
         with self.connect() as conn:
             row = conn.execute("SELECT 1 FROM authorized_users WHERE chat_id = ?", (chat_id,)).fetchone()
         return row is not None
+
+    def create_web_account(
+        self,
+        email: str,
+        chat_id: int,
+        password_hash: str,
+        display_name: str | None = None,
+    ) -> None:
+        normalized_email = email.strip().lower()
+        if not normalized_email:
+            raise ValueError("email is required")
+        self.authorize_user(chat_id)
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO web_accounts(email, chat_id, password_hash, display_name)
+                VALUES (?, ?, ?, ?)
+                """,
+                (normalized_email, chat_id, password_hash, display_name),
+            )
+
+    def get_web_account(self, email: str) -> dict[str, Any] | None:
+        normalized_email = email.strip().lower()
+        with self.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT email, chat_id, password_hash, display_name, created_at, updated_at
+                FROM web_accounts
+                WHERE email = ?
+                """,
+                (normalized_email,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def list_web_accounts(self) -> list[dict[str, Any]]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT email, chat_id, display_name, created_at, updated_at
+                FROM web_accounts
+                ORDER BY email
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def count_web_accounts(self) -> int:
+        with self.connect() as conn:
+            row = conn.execute("SELECT COUNT(*) AS total FROM web_accounts").fetchone()
+        return int(row["total"])
 
     def create_invite(self, created_by: int) -> str:
         self.authorize_user(created_by)

@@ -4,6 +4,7 @@ import os
 import json
 import hashlib
 import hmac
+import secrets
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from html import escape
@@ -61,6 +62,7 @@ app = FastAPI(title="Menu Bot", lifespan=lifespan)
 PWA_CACHE_VERSION = "menu-bot-v1"
 SESSION_COOKIE = "menu_session"
 CHAT_COOKIE = "menu_chat_id"
+PASSWORD_ITERATIONS = 210_000
 
 CHEF_STYLES = {
     "paulina cocina": "Paulina Cocina: práctico, casero, rendidor y sin complicarla.",
@@ -100,7 +102,7 @@ def manifest() -> Response:
 def service_worker() -> Response:
     script = f"""
 const CACHE_NAME = '{PWA_CACHE_VERSION}';
-const APP_SHELL = ['/', '/semana', '/compra', '/config', '/login', '/offline', '/manifest.webmanifest', '/icon.svg'];
+const APP_SHELL = ['/', '/semana', '/compra', '/config', '/login', '/register', '/offline', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {{
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -253,23 +255,51 @@ def onboarding_page(request: Request, pin: str | None = None, chat_id: int | Non
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, next: str = "/") -> HTMLResponse:
-    users = _available_web_users()
-    return HTMLResponse(_login_screen(users, next))
+    return HTMLResponse(_login_screen(next))
 
 
 @app.post("/login")
 async def login_submit(request: Request) -> Any:
     form = _parse_form(await request.body())
-    pin = _form_str(form, "pin")
+    email = _form_str(form, "email").lower()
+    password = _form_str(form, "password")
+    next_path = _safe_next(_form_str(form, "next", "/"))
+    account = DB.get_web_account(email)
+    if not account or not _verify_password(password, str(account["password_hash"])):
+        return HTMLResponse(_login_screen(next_path, "Email o contraseña incorrectos."), status_code=401)
+    response = _session_response(next_path, int(account["chat_id"]), str(account["email"]))
+    return response
+
+
+@app.get("/register", response_class=HTMLResponse)
+def register_page(request: Request, next: str = "/") -> HTMLResponse:
+    return HTMLResponse(_register_screen(_available_web_users(), next))
+
+
+@app.post("/register")
+async def register_submit(request: Request) -> Any:
+    form = _parse_form(await request.body())
+    email = _form_str(form, "email").lower()
+    password = _form_str(form, "password")
+    display_name = _form_str(form, "display_name") or None
+    setup_pin = _form_str(form, "setup_pin")
     next_path = _safe_next(_form_str(form, "next", "/"))
     expected = os.getenv("DASHBOARD_PIN", "").strip()
-    if expected and not hmac.compare_digest(pin, expected):
-        return HTMLResponse(_login_screen(_available_web_users(), next_path, "PIN incorrecto."), status_code=401)
-    chat_id = _active_chat_id(_form_int(form, "chat_id") or None, request)
-    response = RedirectResponse(next_path, status_code=303)
-    response.set_cookie(SESSION_COOKIE, _session_value(), httponly=True, samesite="lax", max_age=60 * 60 * 24 * 180)
-    response.set_cookie(CHAT_COOKIE, str(chat_id), httponly=True, samesite="lax", max_age=60 * 60 * 24 * 180)
-    return response
+    if expected and not hmac.compare_digest(setup_pin, expected):
+        return HTMLResponse(_register_screen(_available_web_users(), next_path, "PIN de alta incorrecto."), status_code=401)
+    if "@" not in email or "." not in email:
+        return HTMLResponse(_register_screen(_available_web_users(), next_path, "Ingresá un email válido."), status_code=400)
+    if len(password) < 8:
+        return HTMLResponse(_register_screen(_available_web_users(), next_path, "La contraseña debe tener al menos 8 caracteres."), status_code=400)
+    chat_id = _form_int(form, "chat_id")
+    if not chat_id:
+        chat_id = _new_web_chat_id()
+    if DB.get_web_account(email):
+        return HTMLResponse(_register_screen(_available_web_users(), next_path, "Ese email ya existe."), status_code=409)
+    DB.create_web_account(email, chat_id, _hash_password(password), display_name)
+    if display_name:
+        DB.update_profile(chat_id, {"nombre": display_name})
+    return _session_response(next_path, chat_id, email)
 
 
 @app.post("/logout")
@@ -487,13 +517,15 @@ def _guard_web(request: Request, pin: str | None) -> None:
 
 
 def _has_web_access(request: Request, pin: str | None) -> bool:
+    if _session_chat_id(request) is not None:
+        return True
     expected = os.getenv("DASHBOARD_PIN", "").strip()
     if not expected:
-        return True
+        return DB.count_web_accounts() == 0
     header_pin = request.headers.get("x-dashboard-pin")
     if pin == expected or header_pin == expected:
         return True
-    return hmac.compare_digest(request.cookies.get(SESSION_COOKIE, ""), _session_value())
+    return False
 
 
 def _login_redirect_if_needed(request: Request, pin: str | None) -> RedirectResponse | None:
@@ -503,12 +535,12 @@ def _login_redirect_if_needed(request: Request, pin: str | None) -> RedirectResp
 
 
 def _active_chat_id(requested_chat_id: int | None = None, request: Request | None = None) -> int:
+    if request:
+        session_chat_id = _session_chat_id(request)
+        if session_chat_id and DB.is_authorized_user(session_chat_id):
+            return session_chat_id
     if requested_chat_id and DB.is_authorized_user(requested_chat_id):
         return requested_chat_id
-    if request:
-        cookie_chat_id = _cookie_chat_id(request)
-        if cookie_chat_id and DB.is_authorized_user(cookie_chat_id):
-            return cookie_chat_id
     configured = os.getenv("DEFAULT_CHAT_ID", "").strip()
     if configured:
         return int(configured)
@@ -555,9 +587,44 @@ def _context_query(chat_id: int, pin: str | None = None) -> str:
     return "?" + urlencode(params)
 
 
-def _session_value() -> str:
+def _session_response(next_path: str, chat_id: int, email: str) -> RedirectResponse:
+    response = RedirectResponse(next_path, status_code=303)
+    response.set_cookie(SESSION_COOKIE, _signed_session_token(chat_id, email), httponly=True, samesite="lax", max_age=60 * 60 * 24 * 180)
+    response.set_cookie(CHAT_COOKIE, str(chat_id), httponly=True, samesite="lax", max_age=60 * 60 * 24 * 180)
+    return response
+
+
+def _session_secret() -> str:
     secret = os.getenv("WEB_SESSION_SECRET") or os.getenv("DASHBOARD_PIN") or "local-dev-session"
-    return hmac.new(secret.encode("utf-8"), b"menu-bot-web", hashlib.sha256).hexdigest()
+    return secret
+
+
+def _signed_session_token(chat_id: int, email: str) -> str:
+    payload = f"{chat_id}:{email.lower()}"
+    signature = hmac.new(_session_secret().encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{payload}:{signature}"
+
+
+def _session_chat_id(request: Request) -> int | None:
+    token = request.cookies.get(SESSION_COOKIE, "")
+    parts = token.split(":")
+    if len(parts) != 3:
+        return None
+    chat_id_raw, email, signature = parts
+    payload = f"{chat_id_raw}:{email}"
+    expected = hmac.new(_session_secret().encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        return None
+    account = DB.get_web_account(email)
+    if not account:
+        return None
+    try:
+        chat_id = int(chat_id_raw)
+    except ValueError:
+        return None
+    if int(account["chat_id"]) != chat_id:
+        return None
+    return chat_id
 
 
 def _cookie_chat_id(request: Request) -> int | None:
@@ -566,6 +633,31 @@ def _cookie_chat_id(request: Request) -> int | None:
         return int(raw)
     except ValueError:
         return None
+
+
+def _hash_password(password: str) -> str:
+    salt = os.urandom(16).hex()
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), PASSWORD_ITERATIONS).hex()
+    return f"pbkdf2_sha256${PASSWORD_ITERATIONS}${salt}${digest}"
+
+
+def _verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        algorithm, iterations_raw, salt, digest = stored_hash.split("$", 3)
+        iterations = int(iterations_raw)
+    except ValueError:
+        return False
+    if algorithm != "pbkdf2_sha256":
+        return False
+    candidate = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), iterations).hex()
+    return hmac.compare_digest(candidate, digest)
+
+
+def _new_web_chat_id() -> int:
+    while True:
+        chat_id = 900_000_000_000 + secrets.randbelow(99_999_999)
+        if chat_id not in DB.list_chat_ids():
+            return chat_id
 
 
 def _available_web_users() -> list[dict[str, Any]]:
@@ -674,13 +766,7 @@ def _today() -> date:
     return datetime.now(TZ if isinstance(TZ, ZoneInfo) else ZoneInfo("America/Argentina/Buenos_Aires")).date()
 
 
-def _login_screen(users: list[dict[str, Any]], next_path: str, error: str | None = None) -> str:
-    options = "".join(
-        f'<option value="{user["chat_id"]}">{escape(user["label"])} · {user["chat_id"]}</option>'
-        for user in users
-    )
-    if not options:
-        options = '<option value="">Usuario por defecto</option>'
+def _login_screen(next_path: str, error: str | None = None) -> str:
     error_html = f'<div class="login-error">{escape(error)}</div>' if error else ""
     return f"""<!doctype html>
 <html lang="es">
@@ -699,24 +785,84 @@ def _login_screen(users: list[dict[str, Any]], next_path: str, error: str | None
     label {{ display:flex; flex-direction:column; gap:6px; margin-top:12px; color:var(--muted); font-size:13px; font-weight:800; }}
     input, select {{ width:100%; border:1px solid var(--line); border-radius:8px; padding:11px; font:inherit; font-weight:650; }}
     button {{ width:100%; margin-top:16px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; padding:12px; font:inherit; font-weight:850; cursor:pointer; }}
+    a {{ color:var(--accent); font-weight:850; }}
     .login-error {{ border:1px solid #b75b4b; background:#fff2ef; color:#7a3328; border-radius:8px; padding:10px; margin:12px 0; font-weight:800; }}
   </style>
 </head>
 <body>
   <main>
     <h1>Menú Familiar</h1>
-    <p>Entrá con el PIN y elegí el perfil que querés usar en esta pantalla.</p>
+    <p>Entrá con tu email y contraseña.</p>
     {error_html}
     <form method="post" action="/login">
       <input type="hidden" name="next" value="{escape(_safe_next(next_path), quote=True)}">
-      <label>Perfil
-        <select name="chat_id">{options}</select>
+      <label>Email
+        <input name="email" type="email" autocomplete="email" required>
       </label>
-      <label>PIN
-        <input name="pin" type="password" autocomplete="current-password">
+      <label>Contraseña
+        <input name="password" type="password" autocomplete="current-password" required>
       </label>
       <button type="submit">Entrar</button>
     </form>
+    <p style="margin-top:16px;">¿Primera vez? <a href="/register?next={escape(_safe_next(next_path), quote=True)}">Crear cuenta</a></p>
+  </main>
+</body>
+</html>"""
+
+
+def _register_screen(users: list[dict[str, Any]], next_path: str, error: str | None = None) -> str:
+    options = '<option value="">Crear perfil nuevo</option>' + "".join(
+        f'<option value="{user["chat_id"]}">{escape(user["label"])} · {user["chat_id"]}</option>'
+        for user in users
+    )
+    setup_pin_label = "PIN de alta" if os.getenv("DASHBOARD_PIN", "").strip() else "PIN de alta opcional"
+    error_html = f'<div class="login-error">{escape(error)}</div>' if error else ""
+    return f"""<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#2f6f5e">
+  <title>Crear cuenta · Menú Familiar</title>
+  <style>
+    :root {{ --bg:#f6f4ef; --ink:#1c1b18; --muted:#68645d; --line:#d8d1c4; --accent:#2f6f5e; }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:20px; }}
+    main {{ width:min(500px, 100%); background:#fff; border:1px solid var(--line); border-radius:8px; padding:22px; box-shadow:0 12px 30px rgba(47,45,39,.08); }}
+    h1 {{ margin:0 0 8px; font-size:32px; letter-spacing:0; }}
+    p {{ margin:0 0 18px; color:var(--muted); line-height:1.35; }}
+    label {{ display:flex; flex-direction:column; gap:6px; margin-top:12px; color:var(--muted); font-size:13px; font-weight:800; }}
+    input, select {{ width:100%; border:1px solid var(--line); border-radius:8px; padding:11px; font:inherit; font-weight:650; }}
+    button {{ width:100%; margin-top:16px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; padding:12px; font:inherit; font-weight:850; cursor:pointer; }}
+    a {{ color:var(--accent); font-weight:850; }}
+    .login-error {{ border:1px solid #b75b4b; background:#fff2ef; color:#7a3328; border-radius:8px; padding:10px; margin:12px 0; font-weight:800; }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Crear cuenta</h1>
+    <p>La cuenta queda vinculada a un perfil de menú. Si elegís perfil nuevo, después completás las 5 preguntas iniciales.</p>
+    {error_html}
+    <form method="post" action="/register">
+      <input type="hidden" name="next" value="{escape(_safe_next(next_path), quote=True)}">
+      <label>Nombre
+        <input name="display_name" autocomplete="name">
+      </label>
+      <label>Email
+        <input name="email" type="email" autocomplete="email" required>
+      </label>
+      <label>Contraseña
+        <input name="password" type="password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <label>Perfil
+        <select name="chat_id">{options}</select>
+      </label>
+      <label>{setup_pin_label}
+        <input name="setup_pin" type="password" autocomplete="off">
+      </label>
+      <button type="submit">Crear cuenta</button>
+    </form>
+    <p style="margin-top:16px;"><a href="/login?next={escape(_safe_next(next_path), quote=True)}">Ya tengo cuenta</a></p>
   </main>
 </body>
 </html>"""
