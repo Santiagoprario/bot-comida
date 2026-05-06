@@ -9,6 +9,8 @@ from urllib.parse import quote
 
 import httpx
 
+from .planner import format_quantity
+
 
 DISCO_SEARCH_URL = "https://www.disco.com.ar/api/catalog_system/pub/products/search"
 DEFAULT_SALES_CHANNEL = "33"
@@ -115,14 +117,14 @@ def format_disco_simulation(lines: list[DiscoLine], missing: list[str], sales_ch
         "Precios públicos estimados; la cuenta/localidad puede cambiar stock y final.",
     ]
     for line in lines:
-        quantity = int(line.quantity) if line.quantity == int(line.quantity) else round(line.quantity, 1)
+        quantity = format_quantity(line.ingredient, line.quantity)
         if not line.product:
-            output.append(f"- {line.ingredient}: {quantity} aprox. | no encontrado")
+            output.append(f"- {line.ingredient}: {quantity} | no encontrado")
             continue
         package = _format_package(line.product)
         promo = f" | {'; '.join(line.product.promotions[:1])}" if line.product.promotions else ""
         output.append(
-            f"- {line.ingredient}: {quantity} aprox. -> {line.units} x {line.product.name} "
+            f"- {line.ingredient}: {quantity} -> {line.units} x {line.product.name} "
             f"{package} = {_money(line.subtotal)}{promo}"
         )
     output.append(f"\nTotal parcial estimado: {_money(total)}")
@@ -143,7 +145,7 @@ def format_disco_product_list(lines: list[DiscoLine], missing: list[str], sales_
     ]
     grouped: dict[str, list[str]] = {}
     for line in lines:
-        quantity = _format_quantity(line.quantity)
+        quantity = format_quantity(line.ingredient, line.quantity)
         if not line.product:
             grouped.setdefault(_shopping_category_for(line.ingredient), []).append(
                 f"- {line.ingredient}: {quantity} -> sin producto sugerido"
@@ -291,12 +293,6 @@ def _format_package(product: DiscoProduct) -> str:
         else product.package_quantity
     )
     return f"x {quantity} {product.package_unit}"
-
-
-def _format_quantity(value: float) -> str:
-    quantity = int(value) if value == int(value) else round(value, 1)
-    unit = "u" if value < 20 else "g/ml aprox."
-    return f"{quantity} {unit}"
 
 
 def _money(value: float) -> str:

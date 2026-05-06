@@ -196,6 +196,86 @@ SHOPPING_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
 )
+UNIT_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "u": (
+        "atún",
+        "café",
+        "cafe",
+        "dannette o copa cindor",
+        "desodorante",
+        "detergente",
+        "huevo",
+        "jabon",
+        "limpiavidrios",
+        "palta",
+        "pan de hamburguesa",
+        "pan de molde",
+        "pan integral",
+        "papel higienico",
+        "pasta dental",
+        "prepizza",
+        "rollo de cocina",
+        "separadores",
+        "tapa de tarta",
+        "tapas de empanada",
+        "tomate",
+        "tortillas",
+        "yogur bebible",
+    ),
+    "ml": (
+        "leche",
+    ),
+    "g": (
+        "arroz",
+        "asado",
+        "banana",
+        "batata",
+        "bife",
+        "bola de lomo",
+        "cebolla",
+        "cous cous",
+        "cuadrada",
+        "cuadril",
+        "dulce de leche",
+        "entraña",
+        "espinaca",
+        "fideos",
+        "fruta de estación",
+        "galletas",
+        "garbanzos",
+        "granola",
+        "hamburguesas",
+        "lechuga",
+        "lentejas",
+        "lomo",
+        "manteca",
+        "mantequilla",
+        "maní",
+        "merluza",
+        "mermelada",
+        "muzzarella",
+        "nalga",
+        "pan rallado",
+        "papa",
+        "papas tipo",
+        "peceto",
+        "pechuga",
+        "pepino",
+        "pimiento",
+        "pollo",
+        "queso",
+        "rebozador",
+        "ricota",
+        "roast beef",
+        "rucula",
+        "suprema",
+        "tomate perita lata",
+        "vacío",
+        "yogur",
+        "zanahoria",
+        "zapallo",
+    ),
+}
 
 
 def week_start_for(day: date) -> date:
@@ -312,12 +392,11 @@ def format_shopping_list(
         remaining = max(qty - owned, 0)
         if remaining == 0 and owned:
             continue
-        unit = "u" if qty < 20 else "g/ml aprox."
-        pretty_qty = int(remaining) if remaining == int(remaining) else round(remaining, 1)
+        pretty_qty = format_quantity(item, remaining)
         preferred = _preferred_product_for(item, preferences or {})
         suffix = f" | sugerido: {preferred}" if preferred else ""
         pantry_note = f" | descuenta stock: {owned:g}" if owned else ""
-        grouped[_shopping_category_for(item)].append(f"- {item}: {pretty_qty} {unit}{suffix}{pantry_note}")
+        grouped[_shopping_category_for(item)].append(f"- {item}: {pretty_qty}{suffix}{pantry_note}")
 
     lines = ["Compra semanal"]
     for category, _keywords in SHOPPING_CATEGORIES:
@@ -376,6 +455,32 @@ def _preferred_product_for(item: str, preferences: dict[str, dict[str, Any]]) ->
     return sorted(contains_preference, reverse=True)[0][1] if contains_preference else None
 
 
+def format_quantity(item: str, quantity: float) -> str:
+    unit = _unit_for_item(item)
+    converted = quantity
+    if unit == "ml" and quantity >= 1000:
+        converted = quantity / 1000
+        unit = "L"
+    elif unit == "g" and quantity >= 1000:
+        converted = quantity / 1000
+        unit = "kg"
+    pretty = int(converted) if converted == int(converted) else round(converted, 2)
+    return f"{pretty:g} {unit}"
+
+
+def _unit_for_item(item: str) -> str:
+    normalized = _normalize_text(item)
+    matches: list[tuple[int, str]] = []
+    for unit, keywords in UNIT_CATEGORIES.items():
+        for keyword in keywords:
+            normalized_keyword = _normalize_text(keyword)
+            if normalized_keyword in normalized:
+                matches.append((len(normalized_keyword), unit))
+    if matches:
+        return sorted(matches, reverse=True)[0][1]
+    return "u" if _looks_countable_amount(item) else "g"
+
+
 def _shopping_category_for(item: str) -> str:
     normalized = _normalize_text(item)
     matches: list[tuple[int, str]] = []
@@ -385,6 +490,11 @@ def _shopping_category_for(item: str) -> str:
             if normalized_keyword in normalized:
                 matches.append((len(normalized_keyword), category))
     return sorted(matches, reverse=True)[0][1] if matches else "Varios"
+
+
+def _looks_countable_amount(item: str) -> bool:
+    normalized = _normalize_text(item)
+    return any(word in normalized for word in ("unidad", "pack", "rollo", "botella", "lata"))
 
 
 def _pick_meal(

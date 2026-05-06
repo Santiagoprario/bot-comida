@@ -19,6 +19,7 @@ from .planner import (
     DAYS,
     MEALS,
     SLOTS,
+    format_quantity,
     format_shopping_list,
     generate_week,
     week_start_for,
@@ -547,10 +548,7 @@ def _format_ingredient(name: str, qty: Any) -> str:
     if isinstance(qty, (int, float)):
         if qty == 0:
             return name
-        if qty < 10:
-            unit = "unidad" if qty == 1 else "unidades"
-            return f"{name}: {qty:g} {unit}"
-        return f"{name}: {qty:g} g/ml aprox."
+        return f"{name}: {format_quantity(name, qty)}"
     return f"{name}: {qty}"
 
 
