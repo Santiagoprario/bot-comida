@@ -199,6 +199,7 @@ SHOPPING_CATEGORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
 UNIT_CATEGORIES: dict[str, tuple[str, ...]] = {
     "u": (
         "atún",
+        "banana",
         "café",
         "cafe",
         "dannette o copa cindor",
@@ -206,6 +207,7 @@ UNIT_CATEGORIES: dict[str, tuple[str, ...]] = {
         "detergente",
         "huevo",
         "jabon",
+        "limon",
         "limpiavidrios",
         "palta",
         "pan de hamburguesa",
@@ -220,6 +222,7 @@ UNIT_CATEGORIES: dict[str, tuple[str, ...]] = {
         "tapas de empanada",
         "tomate",
         "tortillas",
+        "fruta de estación",
         "yogur bebible",
     ),
     "ml": (
@@ -228,7 +231,6 @@ UNIT_CATEGORIES: dict[str, tuple[str, ...]] = {
     "g": (
         "arroz",
         "asado",
-        "banana",
         "batata",
         "bife",
         "bola de lomo",
@@ -240,7 +242,6 @@ UNIT_CATEGORIES: dict[str, tuple[str, ...]] = {
         "entraña",
         "espinaca",
         "fideos",
-        "fruta de estación",
         "galletas",
         "garbanzos",
         "granola",
@@ -275,6 +276,9 @@ UNIT_CATEGORIES: dict[str, tuple[str, ...]] = {
         "zanahoria",
         "zapallo",
     ),
+}
+UNIT_TO_GRAMS: dict[str, float] = {
+    "tomate": 150,
 }
 
 
@@ -456,6 +460,14 @@ def _preferred_product_for(item: str, preferences: dict[str, dict[str, Any]]) ->
 
 
 def format_quantity(item: str, quantity: float) -> str:
+    unit_weight = _unit_weight_for_item(item)
+    if unit_weight and quantity >= 8:
+        converted_weight = quantity * unit_weight
+        converted = converted_weight / 1000 if converted_weight >= 1000 else converted_weight
+        unit = "kg" if converted_weight >= 1000 else "g"
+        pretty = int(converted) if converted == int(converted) else round(converted, 2)
+        return f"{pretty:g} {unit} aprox."
+
     unit = _unit_for_item(item)
     converted = quantity
     if unit == "ml" and quantity >= 1000:
@@ -466,6 +478,13 @@ def format_quantity(item: str, quantity: float) -> str:
         unit = "kg"
     pretty = int(converted) if converted == int(converted) else round(converted, 2)
     return f"{pretty:g} {unit}"
+
+
+def _unit_weight_for_item(item: str) -> float | None:
+    normalized = _normalize_text(item)
+    if normalized == "tomate":
+        return UNIT_TO_GRAMS["tomate"]
+    return None
 
 
 def _unit_for_item(item: str) -> str:

@@ -1,6 +1,6 @@
 from datetime import date
 
-from menu_bot.planner import generate_week, week_start_for, _protein_key
+from menu_bot.planner import format_shopping_list, generate_week, week_start_for, _protein_key
 from menu_bot.presets import get_preset
 
 
@@ -71,3 +71,26 @@ def test_sanda_preset_generates_family_portions():
     assert len(plan) == 7
     assert all(meal["porciones"] == 4 for day in plan for meal in day["comidas"].values())
     assert plan[0]["comidas"]["almuerzo"]["ingredientes"]
+
+
+def test_shopping_units_are_human_readable():
+    shopping = format_shopping_list(
+        {
+            "banana": 8,
+            "fruta de estación": 24,
+            "tomate": 52,
+            "tomate perita lata": 800,
+            "nalga para milanesa": 720,
+            "leche zero lactosa": 1400,
+        }
+    )
+
+    assert "banana: 8 u" in shopping
+    assert "fruta de estación: 24 u" in shopping
+    assert "tomate: 7.8 kg aprox." in shopping
+    assert "tomate perita lata: 800 g" in shopping
+    assert "nalga para milanesa: 720 g" in shopping
+    assert "leche zero lactosa: 1.4 L" in shopping
+    assert "banana: 8 g" not in shopping
+    assert "fruta de estación: 24 g" not in shopping
+    assert "tomate: 52 u" not in shopping
