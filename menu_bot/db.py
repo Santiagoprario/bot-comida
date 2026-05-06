@@ -98,6 +98,18 @@ class Database:
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     used_at TEXT
                 );
+
+                CREATE TABLE IF NOT EXISTS shopping_item_state (
+                    chat_id INTEGER NOT NULL,
+                    week_start TEXT NOT NULL,
+                    item TEXT NOT NULL,
+                    checked INTEGER NOT NULL DEFAULT 0,
+                    bought_quantity REAL,
+                    leftover_quantity REAL,
+                    note TEXT,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY(chat_id, week_start, item)
+                );
                 """
             )
 
@@ -280,6 +292,73 @@ class Database:
     def clear_pantry(self, chat_id: int) -> None:
         with self.connect() as conn:
             conn.execute("DELETE FROM pantry_items WHERE chat_id = ?", (chat_id,))
+
+    def get_shopping_item_states(self, chat_id: int, week_start: str) -> dict[str, dict[str, Any]]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT item, checked, bought_quantity, leftover_quantity, note, updated_at
+                FROM shopping_item_state
+                WHERE chat_id = ? AND week_start = ?
+                ORDER BY item
+                """,
+                (chat_id, week_start),
+            ).fetchall()
+        return {
+            row["item"]: {
+                "checked": bool(row["checked"]),
+                "bought_quantity": row["bought_quantity"],
+                "leftover_quantity": row["leftover_quantity"],
+                "note": row["note"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        }
+
+    def upsert_shopping_item_state(
+        self,
+        chat_id: int,
+        week_start: str,
+        item: str,
+        checked: bool = False,
+        bought_quantity: float | None = None,
+        leftover_quantity: float | None = None,
+        note: str | None = None,
+    ) -> None:
+        normalized = item.strip().lower()
+        if not normalized:
+            return
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO shopping_item_state(
+                    chat_id, week_start, item, checked, bought_quantity, leftover_quantity, note
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(chat_id, week_start, item) DO UPDATE SET
+                    checked = excluded.checked,
+                    bought_quantity = excluded.bought_quantity,
+                    leftover_quantity = excluded.leftover_quantity,
+                    note = excluded.note,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    chat_id,
+                    week_start,
+                    normalized,
+                    1 if checked else 0,
+                    bought_quantity,
+                    leftover_quantity,
+                    note,
+                ),
+            )
+
+    def clear_shopping_item_states(self, chat_id: int, week_start: str) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                "DELETE FROM shopping_item_state WHERE chat_id = ? AND week_start = ?",
+                (chat_id, week_start),
+            )
 
     def add_feedback(self, chat_id: int, item: str, sentiment: str, note: str | None = None) -> None:
         self.ensure_user(chat_id)

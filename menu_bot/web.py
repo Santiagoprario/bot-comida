@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import json
+import hashlib
+import hmac
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from html import escape
@@ -57,6 +59,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Menu Bot", lifespan=lifespan)
 PWA_CACHE_VERSION = "menu-bot-v1"
+SESSION_COOKIE = "menu_session"
+CHAT_COOKIE = "menu_chat_id"
 
 CHEF_STYLES = {
     "paulina cocina": "Paulina Cocina: práctico, casero, rendidor y sin complicarla.",
@@ -96,7 +100,7 @@ def manifest() -> Response:
 def service_worker() -> Response:
     script = f"""
 const CACHE_NAME = '{PWA_CACHE_VERSION}';
-const APP_SHELL = ['/', '/semana', '/compra', '/config', '/offline', '/manifest.webmanifest', '/icon.svg'];
+const APP_SHELL = ['/', '/semana', '/compra', '/config', '/login', '/offline', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {{
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -169,8 +173,10 @@ def offline() -> str:
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
+    if gate := _login_redirect_if_needed(request, pin):
+        return gate
     _guard_web(request, pin)
-    chat_id = _active_chat_id(chat_id)
+    chat_id = _active_chat_id(chat_id, request)
     user = DB.get_user(chat_id)
     if _needs_onboarding(user):
         return _redirect("/onboarding", chat_id, pin)
@@ -185,6 +191,8 @@ def home(request: Request, pin: str | None = None, chat_id: int | None = None) -
 
 @app.get("/semana", response_class=HTMLResponse)
 def week_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
+    if gate := _login_redirect_if_needed(request, pin):
+        return gate
     data = _app_data(request, pin, chat_id)
     if data["needs_onboarding"]:
         return _redirect("/onboarding", data["chat_id"], pin)
@@ -194,6 +202,8 @@ def week_page(request: Request, pin: str | None = None, chat_id: int | None = No
 
 @app.get("/compra", response_class=HTMLResponse)
 def shopping_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
+    if gate := _login_redirect_if_needed(request, pin):
+        return gate
     data = _app_data(request, pin, chat_id)
     if data["needs_onboarding"]:
         return _redirect("/onboarding", data["chat_id"], pin)
@@ -210,12 +220,16 @@ def shopping_page(request: Request, pin: str | None = None, chat_id: int | None 
         max_items=max_items,
     )
     disco_text = format_disco_product_list(disco_lines, missing, sales_channel)
-    body = _shopping_screen(shopping, disco_text)
+    week_start = week_start_for(data["today"]).isoformat()
+    states = DB.get_shopping_item_states(data["chat_id"], week_start)
+    body = _shopping_screen(data["chat_id"], pin, shopping, disco_text, states)
     return _app_shell("Compra", "compra", body)
 
 
 @app.get("/config", response_class=HTMLResponse)
 def config_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
+    if gate := _login_redirect_if_needed(request, pin):
+        return gate
     data = _app_data(request, pin, chat_id)
     if data["needs_onboarding"]:
         return _redirect("/onboarding", data["chat_id"], pin)
@@ -224,9 +238,11 @@ def config_page(request: Request, pin: str | None = None, chat_id: int | None = 
 
 
 @app.get("/onboarding", response_class=HTMLResponse)
-def onboarding_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> str:
+def onboarding_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
+    if gate := _login_redirect_if_needed(request, pin):
+        return gate
     _guard_web(request, pin)
-    active_chat_id = _active_chat_id(chat_id)
+    active_chat_id = _active_chat_id(chat_id, request)
     user = DB.get_user(active_chat_id)
     return _app_shell(
         "Config inicial",
@@ -235,13 +251,42 @@ def onboarding_page(request: Request, pin: str | None = None, chat_id: int | Non
     )
 
 
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request, next: str = "/") -> HTMLResponse:
+    users = _available_web_users()
+    return HTMLResponse(_login_screen(users, next))
+
+
+@app.post("/login")
+async def login_submit(request: Request) -> Any:
+    form = _parse_form(await request.body())
+    pin = _form_str(form, "pin")
+    next_path = _safe_next(_form_str(form, "next", "/"))
+    expected = os.getenv("DASHBOARD_PIN", "").strip()
+    if expected and not hmac.compare_digest(pin, expected):
+        return HTMLResponse(_login_screen(_available_web_users(), next_path, "PIN incorrecto."), status_code=401)
+    chat_id = _active_chat_id(_form_int(form, "chat_id") or None, request)
+    response = RedirectResponse(next_path, status_code=303)
+    response.set_cookie(SESSION_COOKIE, _session_value(), httponly=True, samesite="lax", max_age=60 * 60 * 24 * 180)
+    response.set_cookie(CHAT_COOKIE, str(chat_id), httponly=True, samesite="lax", max_age=60 * 60 * 24 * 180)
+    return response
+
+
+@app.post("/logout")
+async def logout_submit() -> RedirectResponse:
+    response = RedirectResponse("/login", status_code=303)
+    response.delete_cookie(SESSION_COOKIE)
+    response.delete_cookie(CHAT_COOKIE)
+    return response
+
+
 @app.post("/onboarding")
 async def save_onboarding(request: Request) -> RedirectResponse:
     form = _parse_form(await request.body())
     chat_id = _form_int(form, "chat_id")
     pin = _form_str(form, "pin") or None
     _guard_web(request, pin)
-    active_chat_id = _active_chat_id(chat_id)
+    active_chat_id = _active_chat_id(chat_id, request)
     DB.authorize_user(active_chat_id)
     DB.update_profile(
         active_chat_id,
@@ -278,7 +323,7 @@ async def action_generate(request: Request) -> RedirectResponse:
     chat_id = _form_int(form, "chat_id")
     pin = _form_str(form, "pin") or None
     _guard_web(request, pin)
-    active_chat_id = _active_chat_id(chat_id)
+    active_chat_id = _active_chat_id(chat_id, request)
     _clear_current_week(active_chat_id)
     _get_or_create(active_chat_id, _today())
     return _redirect("/semana", active_chat_id, pin)
@@ -290,7 +335,7 @@ async def action_profile(request: Request) -> RedirectResponse:
     chat_id = _form_int(form, "chat_id")
     pin = _form_str(form, "pin") or None
     _guard_web(request, pin)
-    active_chat_id = _active_chat_id(chat_id)
+    active_chat_id = _active_chat_id(chat_id, request)
     DB.update_profile(
         active_chat_id,
         _clean_values(
@@ -314,7 +359,7 @@ async def action_conditions(request: Request) -> RedirectResponse:
     chat_id = _form_int(form, "chat_id")
     pin = _form_str(form, "pin") or None
     _guard_web(request, pin)
-    active_chat_id = _active_chat_id(chat_id)
+    active_chat_id = _active_chat_id(chat_id, request)
     DB.update_conditions(
         active_chat_id,
         _clean_values(
@@ -340,11 +385,45 @@ async def action_stock(request: Request) -> RedirectResponse:
     pin = _form_str(form, "pin") or None
     item = _form_str(form, "item")
     _guard_web(request, pin)
-    active_chat_id = _active_chat_id(chat_id)
+    active_chat_id = _active_chat_id(chat_id, request)
     if item.strip():
         DB.upsert_pantry_item(active_chat_id, item, _form_float(form, "quantity", 1))
         _clear_current_week(active_chat_id)
     return _redirect("/config", active_chat_id, pin)
+
+
+@app.post("/actions/shopping_item")
+async def action_shopping_item(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id, request)
+    item = _form_str(form, "item")
+    leftover = _optional_form_float(form, "leftover_quantity")
+    DB.upsert_shopping_item_state(
+        active_chat_id,
+        week_start_for(_today()).isoformat(),
+        item,
+        checked=_form_str(form, "checked") == "on",
+        bought_quantity=_optional_form_float(form, "bought_quantity"),
+        leftover_quantity=leftover,
+        note=_form_str(form, "note") or None,
+    )
+    if item and leftover and leftover > 0:
+        DB.upsert_pantry_item(active_chat_id, item, leftover)
+    return _redirect("/compra", active_chat_id, pin)
+
+
+@app.post("/actions/clear_shopping_state")
+async def action_clear_shopping_state(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id, request)
+    DB.clear_shopping_item_states(active_chat_id, week_start_for(_today()).isoformat())
+    return _redirect("/compra", active_chat_id, pin)
 
 
 @app.post("/actions/clear_stock")
@@ -353,7 +432,7 @@ async def action_clear_stock(request: Request) -> RedirectResponse:
     chat_id = _form_int(form, "chat_id")
     pin = _form_str(form, "pin") or None
     _guard_web(request, pin)
-    active_chat_id = _active_chat_id(chat_id)
+    active_chat_id = _active_chat_id(chat_id, request)
     DB.clear_pantry(active_chat_id)
     _clear_current_week(active_chat_id)
     return _redirect("/config", active_chat_id, pin)
@@ -366,7 +445,7 @@ async def action_offers(request: Request) -> RedirectResponse:
     pin = _form_str(form, "pin") or None
     offer = _form_str(form, "offer")
     _guard_web(request, pin)
-    active_chat_id = _active_chat_id(chat_id)
+    active_chat_id = _active_chat_id(chat_id, request)
     if offer.strip():
         item, price, note = parse_offer(offer)
         DB.add_offer(active_chat_id, item, price, note)
@@ -380,7 +459,7 @@ async def action_clear_offers(request: Request) -> RedirectResponse:
     chat_id = _form_int(form, "chat_id")
     pin = _form_str(form, "pin") or None
     _guard_web(request, pin)
-    active_chat_id = _active_chat_id(chat_id)
+    active_chat_id = _active_chat_id(chat_id, request)
     DB.clear_offers(active_chat_id)
     _clear_current_week(active_chat_id)
     return _redirect("/config", active_chat_id, pin)
@@ -389,7 +468,7 @@ async def action_clear_offers(request: Request) -> RedirectResponse:
 @app.get("/api/menu")
 def api_menu(request: Request, pin: str | None = None, chat_id: int | None = None) -> JSONResponse:
     _guard_web(request, pin)
-    chat_id = _active_chat_id(chat_id)
+    chat_id = _active_chat_id(chat_id, request)
     today = _today()
     weekly = _get_or_create(chat_id, today)
     return JSONResponse(
@@ -402,18 +481,34 @@ def api_menu(request: Request, pin: str | None = None, chat_id: int | None = Non
 
 
 def _guard_web(request: Request, pin: str | None) -> None:
-    expected = os.getenv("DASHBOARD_PIN", "").strip()
-    if not expected:
-        return
-    header_pin = request.headers.get("x-dashboard-pin")
-    if pin == expected or header_pin == expected:
+    if _has_web_access(request, pin):
         return
     raise HTTPException(status_code=401, detail="PIN requerido")
 
 
-def _active_chat_id(requested_chat_id: int | None = None) -> int:
+def _has_web_access(request: Request, pin: str | None) -> bool:
+    expected = os.getenv("DASHBOARD_PIN", "").strip()
+    if not expected:
+        return True
+    header_pin = request.headers.get("x-dashboard-pin")
+    if pin == expected or header_pin == expected:
+        return True
+    return hmac.compare_digest(request.cookies.get(SESSION_COOKIE, ""), _session_value())
+
+
+def _login_redirect_if_needed(request: Request, pin: str | None) -> RedirectResponse | None:
+    if _has_web_access(request, pin):
+        return None
+    return RedirectResponse(f"/login?{urlencode({'next': request.url.path})}", status_code=303)
+
+
+def _active_chat_id(requested_chat_id: int | None = None, request: Request | None = None) -> int:
     if requested_chat_id and DB.is_authorized_user(requested_chat_id):
         return requested_chat_id
+    if request:
+        cookie_chat_id = _cookie_chat_id(request)
+        if cookie_chat_id and DB.is_authorized_user(cookie_chat_id):
+            return cookie_chat_id
     configured = os.getenv("DEFAULT_CHAT_ID", "").strip()
     if configured:
         return int(configured)
@@ -428,7 +523,7 @@ def _active_chat_id(requested_chat_id: int | None = None) -> int:
 
 def _app_data(request: Request, pin: str | None, chat_id: int | None) -> dict[str, Any]:
     _guard_web(request, pin)
-    active_chat_id = _active_chat_id(chat_id)
+    active_chat_id = _active_chat_id(chat_id, request)
     today = _today()
     user = DB.get_user(active_chat_id)
     needs_onboarding = _needs_onboarding(user)
@@ -458,6 +553,35 @@ def _context_query(chat_id: int, pin: str | None = None) -> str:
     if pin:
         params["pin"] = pin
     return "?" + urlencode(params)
+
+
+def _session_value() -> str:
+    secret = os.getenv("WEB_SESSION_SECRET") or os.getenv("DASHBOARD_PIN") or "local-dev-session"
+    return hmac.new(secret.encode("utf-8"), b"menu-bot-web", hashlib.sha256).hexdigest()
+
+
+def _cookie_chat_id(request: Request) -> int | None:
+    raw = request.cookies.get(CHAT_COOKIE, "")
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _available_web_users() -> list[dict[str, Any]]:
+    users = []
+    for chat_id in DB.list_chat_ids():
+        user = DB.get_user(chat_id)
+        profile = user["profile"]
+        label = profile.get("nombre") or profile.get("familia") or profile.get("ciudad") or str(chat_id)
+        users.append({"chat_id": chat_id, "label": str(label), "profile": profile})
+    return users
+
+
+def _safe_next(next_path: str) -> str:
+    if next_path.startswith("/") and not next_path.startswith("//"):
+        return next_path
+    return "/"
 
 
 def _hidden_context(chat_id: int, pin: str | None = None) -> str:
@@ -505,6 +629,16 @@ def _form_float(form: Any, key: str, default: float = 0) -> float:
         return default
 
 
+def _optional_form_float(form: Any, key: str) -> float | None:
+    value = _form_str(form, key)
+    if not value:
+        return None
+    try:
+        return float(value.replace(",", "."))
+    except ValueError:
+        return None
+
+
 def _clear_current_week(chat_id: int) -> None:
     start = week_start_for(_today()).isoformat()
     with DB.connect() as conn:
@@ -538,6 +672,54 @@ def _plan_needs_refresh(plan: list[dict[str, Any]]) -> bool:
 
 def _today() -> date:
     return datetime.now(TZ if isinstance(TZ, ZoneInfo) else ZoneInfo("America/Argentina/Buenos_Aires")).date()
+
+
+def _login_screen(users: list[dict[str, Any]], next_path: str, error: str | None = None) -> str:
+    options = "".join(
+        f'<option value="{user["chat_id"]}">{escape(user["label"])} · {user["chat_id"]}</option>'
+        for user in users
+    )
+    if not options:
+        options = '<option value="">Usuario por defecto</option>'
+    error_html = f'<div class="login-error">{escape(error)}</div>' if error else ""
+    return f"""<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#2f6f5e">
+  <title>Ingresar · Menú Familiar</title>
+  <style>
+    :root {{ --bg:#f6f4ef; --ink:#1c1b18; --muted:#68645d; --line:#d8d1c4; --accent:#2f6f5e; }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:20px; }}
+    main {{ width:min(460px, 100%); background:#fff; border:1px solid var(--line); border-radius:8px; padding:22px; box-shadow:0 12px 30px rgba(47,45,39,.08); }}
+    h1 {{ margin:0 0 8px; font-size:32px; letter-spacing:0; }}
+    p {{ margin:0 0 18px; color:var(--muted); line-height:1.35; }}
+    label {{ display:flex; flex-direction:column; gap:6px; margin-top:12px; color:var(--muted); font-size:13px; font-weight:800; }}
+    input, select {{ width:100%; border:1px solid var(--line); border-radius:8px; padding:11px; font:inherit; font-weight:650; }}
+    button {{ width:100%; margin-top:16px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; padding:12px; font:inherit; font-weight:850; cursor:pointer; }}
+    .login-error {{ border:1px solid #b75b4b; background:#fff2ef; color:#7a3328; border-radius:8px; padding:10px; margin:12px 0; font-weight:800; }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Menú Familiar</h1>
+    <p>Entrá con el PIN y elegí el perfil que querés usar en esta pantalla.</p>
+    {error_html}
+    <form method="post" action="/login">
+      <input type="hidden" name="next" value="{escape(_safe_next(next_path), quote=True)}">
+      <label>Perfil
+        <select name="chat_id">{options}</select>
+      </label>
+      <label>PIN
+        <input name="pin" type="password" autocomplete="current-password">
+      </label>
+      <button type="submit">Entrar</button>
+    </form>
+  </main>
+</body>
+</html>"""
 
 
 def _app_shell(title: str, active: str, body: str) -> str:
@@ -724,6 +906,10 @@ def _app_shell(title: str, active: str, body: str) -> str:
       padding: 10px;
       background: #fbfaf7;
     }}
+    .shopping-list li.checked {{
+      opacity: .62;
+      background: #eef3ef;
+    }}
     .buy-line {{
       display: flex;
       justify-content: space-between;
@@ -832,12 +1018,42 @@ def _app_shell(title: str, active: str, body: str) -> str:
       background: #7a3328;
       border-color: #7a3328;
     }}
+    .inline-form {{
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: 92px 92px minmax(120px, 1fr) auto;
+      gap: 8px;
+      align-items: end;
+    }}
+    .checkline {{
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 850;
+    }}
+    .checkline input {{
+      width: auto;
+    }}
+    .inline-form input {{
+      min-width: 0;
+      padding: 8px;
+      font-size: 13px;
+    }}
+    .inline-form .button {{
+      min-height: 36px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }}
     @media (max-width: 900px) {{
       .screen {{ padding: 18px; }}
       .screen-header {{ align-items: start; }}
       h1 {{ font-size: 34px; }}
       .grid, .shopping-layout {{ grid-template-columns: 1fr; }}
       .week-card, .form-grid {{ grid-template-columns: 1fr; }}
+      .inline-form {{ grid-template-columns: 1fr; }}
       .kv {{ grid-template-columns: 1fr; }}
     }}
   </style>
@@ -912,13 +1128,31 @@ def _week_screen(week: list[dict[str, Any]]) -> str:
     return f'<section class="stack">{"".join(cards)}</section>'
 
 
-def _shopping_screen(shopping: str, disco_text: str) -> str:
+def _shopping_screen(
+    chat_id: int,
+    pin: str | None,
+    shopping: str,
+    disco_text: str,
+    states: dict[str, dict[str, Any]],
+) -> str:
+    hidden = _hidden_context(chat_id, pin)
     return f"""
+    <section class="card">
+      <h2>Compra editable</h2>
+      <div class="actions">
+        <form method="post" action="/actions/clear_shopping_state">
+          {hidden}
+          <button class="button secondary" type="submit">Limpiar checks de la semana</button>
+        </form>
+      </div>
+      <div class="meta">Marcá comprado, ajustá cantidad real y cargá sobrante. El sobrante se guarda en stock para descontarlo después.</div>
+    </section>
+    <br>
     <section class="shopping-layout">
       <div class="shopping-column">
         <div class="card">
           <h2>Lista por rubro</h2>
-          <div class="stack">{_shopping_markup(shopping)}</div>
+          <div class="stack">{_shopping_markup(shopping, chat_id, pin, states, editable=True)}</div>
         </div>
       </div>
       <div class="shopping-column">
@@ -960,6 +1194,9 @@ def _config_screen(
         </form>
         <a class="button secondary" href="/semana{_context_query(chat_id, pin)}">Ver semana</a>
         <a class="button secondary" href="/compra{_context_query(chat_id, pin)}">Ver compra</a>
+        <form method="post" action="/logout">
+          <button class="button secondary" type="submit">Salir</button>
+        </form>
       </div>
     </section>
     <br>
@@ -1134,7 +1371,13 @@ def _dict_details(values: dict[str, Any]) -> str:
     return f'<dl class="kv">{rows}</dl>'
 
 
-def _shopping_markup(shopping: str) -> str:
+def _shopping_markup(
+    shopping: str,
+    chat_id: int | None = None,
+    pin: str | None = None,
+    states: dict[str, dict[str, Any]] | None = None,
+    editable: bool = False,
+) -> str:
     groups: list[tuple[str, list[str]]] = []
     current_title = "Varios"
     current_items: list[str] = []
@@ -1153,7 +1396,15 @@ def _shopping_markup(shopping: str) -> str:
             flush()
             current_title = line
             continue
-        current_items.append(_shopping_item_markup(line.removeprefix("- ").strip()))
+        current_items.append(
+            _shopping_item_markup(
+                line.removeprefix("- ").strip(),
+                chat_id=chat_id,
+                pin=pin,
+                states=states or {},
+                editable=editable,
+            )
+        )
     flush()
 
     return "\n".join(
@@ -1167,7 +1418,13 @@ def _shopping_markup(shopping: str) -> str:
     )
 
 
-def _shopping_item_markup(line: str) -> str:
+def _shopping_item_markup(
+    line: str,
+    chat_id: int | None = None,
+    pin: str | None = None,
+    states: dict[str, dict[str, Any]] | None = None,
+    editable: bool = False,
+) -> str:
     main, *notes = [part.strip() for part in line.split(" | ")]
     if ": comprar " in main:
         item, quantity = main.split(": comprar ", 1)
@@ -1176,10 +1433,37 @@ def _shopping_item_markup(line: str) -> str:
     else:
         item, quantity = main, ""
     notes_html = f"<div class=\"buy-notes\">{escape(' · '.join(notes))}</div>" if notes else ""
+    normalized = item.strip().lower()
+    state = (states or {}).get(normalized, {})
+    checked = bool(state.get("checked"))
+    form_html = ""
+    if editable and chat_id is not None:
+        hidden = _hidden_context(chat_id, pin) + f'<input type="hidden" name="item" value="{escape(normalized, quote=True)}">'
+        checked_attr = " checked" if checked else ""
+        bought = "" if state.get("bought_quantity") is None else f'{state["bought_quantity"]:g}'
+        leftover = "" if state.get("leftover_quantity") is None else f'{state["leftover_quantity"]:g}'
+        note = escape(str(state.get("note") or ""), quote=True)
+        form_html = f"""
+        <form class="inline-form" method="post" action="/actions/shopping_item">
+          {hidden}
+          <label class="checkline"><input name="checked" type="checkbox"{checked_attr}> Comprado</label>
+          <label>Cant.
+            <input name="bought_quantity" type="number" min="0" step="0.1" value="{bought}">
+          </label>
+          <label>Sobrante
+            <input name="leftover_quantity" type="number" min="0" step="0.1" value="{leftover}">
+          </label>
+          <label>Nota
+            <input name="note" value="{note}">
+          </label>
+          <button class="button" type="submit">Guardar</button>
+        </form>
+        """
     return (
-        "<li>"
+        f'<li class="{"checked" if checked else ""}">'
         f"<div class=\"buy-line\"><span>{escape(item)}</span><span>{escape(quantity)}</span></div>"
         f"{notes_html}"
+        f"{form_html}"
         "</li>"
     )
 

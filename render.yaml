@@ -20,6 +20,8 @@ services:
         sync: false
       - key: DASHBOARD_PIN
         sync: false
+      - key: WEB_SESSION_SECRET
+        sync: false
       - key: WEATHER_LATITUDE
         value: "-38.0055"
       - key: WEATHER_LONGITUDE

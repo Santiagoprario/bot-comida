@@ -66,6 +66,20 @@ Rutas de app:
 
 Si el usuario todavía no tiene perfil o reglas, la app lo manda a `/onboarding`. Desde `/config` se puede regenerar la semana, editar preferencias, cargar stock de alacena y sumar ofertas sin usar Telegram.
 
+Login web:
+
+```text
+/login
+```
+
+Si `DASHBOARD_PIN` está configurado, la PWA pide PIN y guarda sesión en una cookie. También permite elegir qué perfil familiar usar en esa pantalla.
+
+Compra editable:
+
+- En `/compra` podés marcar cada producto como comprado.
+- Podés cargar cantidad real comprada, sobrante y nota.
+- Si cargás sobrante, se guarda como stock para descontarlo de próximas compras.
+
 ## Deploy gratis en Render
 
 El proyecto incluye `render.yaml`. En Render:
@@ -80,6 +94,7 @@ DEFAULT_CHAT_ID=tu_chat_id
 ALLOWED_CHAT_ID=tu_chat_id
 ALLOWED_CHAT_IDS=tu_chat_id,otro_chat_id
 DASHBOARD_PIN=un_pin
+WEB_SESSION_SECRET=clave_larga_random_para_cookies
 DB_PATH=/tmp/menu_bot.sqlite3
 TIMEZONE=America/Argentina/Buenos_Aires
 SEED_PATH=data/default_seed.json
@@ -92,6 +107,15 @@ uvicorn menu_bot.web:app --host 0.0.0.0 --port $PORT
 ```
 
 Nota: en hosting gratis la base local puede ser efímera. El archivo `data/default_seed.json` carga tu perfil, reglas, marcas iniciales y usuarios familiares fijos al arrancar.
+
+Para persistencia real en Render, usá plan Starter o superior con un Disk montado, por ejemplo:
+
+```text
+Mount path: /var/data
+DB_PATH=/var/data/menu_bot.sqlite3
+```
+
+Con eso se conservan perfiles, reglas, stock, ofertas, semanas generadas y checks de compra aunque Render reinicie.
 
 Para que una cuenta familiar no dependa de invitaciones después de un reinicio, agregá su ID a `ALLOWED_CHAT_IDS` y al bloque `users` del seed. Ejemplo actual:
 
