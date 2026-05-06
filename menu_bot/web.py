@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Menu Bot", lifespan=lifespan)
-PWA_CACHE_VERSION = "menu-bot-v1"
+PWA_CACHE_VERSION = "menu-bot-v2"
 SESSION_COOKIE = "menu_session"
 CHAT_COOKIE = "menu_chat_id"
 PASSWORD_ITERATIONS = 210_000
@@ -776,10 +776,10 @@ def _login_screen(next_path: str, error: str | None = None) -> str:
   <meta name="theme-color" content="#2f6f5e">
   <title>Ingresar · Menú Familiar</title>
   <style>
-    :root {{ --bg:#f6f4ef; --ink:#1c1b18; --muted:#68645d; --line:#d8d1c4; --accent:#2f6f5e; }}
+    :root {{ --bg:#f5f1e8; --ink:#1d211c; --muted:#6f705f; --line:#d7ccb8; --accent:#276a54; --accent-2:#b9472f; }}
     * {{ box-sizing: border-box; }}
-    body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:20px; }}
-    main {{ width:min(460px, 100%); background:#fff; border:1px solid var(--line); border-radius:8px; padding:22px; box-shadow:0 12px 30px rgba(47,45,39,.08); }}
+    body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:linear-gradient(135deg, #f5f1e8 0%, #edf3ea 54%, #f7e8dc 100%); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:20px; }}
+    main {{ width:min(460px, 100%); background:#fffdf8; border:1px solid var(--line); border-radius:8px; padding:22px; box-shadow:0 16px 40px rgba(47,45,39,.12); }}
     h1 {{ margin:0 0 8px; font-size:32px; letter-spacing:0; }}
     p {{ margin:0 0 18px; color:var(--muted); line-height:1.35; }}
     label {{ display:flex; flex-direction:column; gap:6px; margin-top:12px; color:var(--muted); font-size:13px; font-weight:800; }}
@@ -825,10 +825,10 @@ def _register_screen(users: list[dict[str, Any]], next_path: str, error: str | N
   <meta name="theme-color" content="#2f6f5e">
   <title>Crear cuenta · Menú Familiar</title>
   <style>
-    :root {{ --bg:#f6f4ef; --ink:#1c1b18; --muted:#68645d; --line:#d8d1c4; --accent:#2f6f5e; }}
+    :root {{ --bg:#f5f1e8; --ink:#1d211c; --muted:#6f705f; --line:#d7ccb8; --accent:#276a54; --accent-2:#b9472f; }}
     * {{ box-sizing: border-box; }}
-    body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:20px; }}
-    main {{ width:min(500px, 100%); background:#fff; border:1px solid var(--line); border-radius:8px; padding:22px; box-shadow:0 12px 30px rgba(47,45,39,.08); }}
+    body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:linear-gradient(135deg, #f5f1e8 0%, #edf3ea 54%, #f7e8dc 100%); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:20px; }}
+    main {{ width:min(500px, 100%); background:#fffdf8; border:1px solid var(--line); border-radius:8px; padding:22px; box-shadow:0 16px 40px rgba(47,45,39,.12); }}
     h1 {{ margin:0 0 8px; font-size:32px; letter-spacing:0; }}
     p {{ margin:0 0 18px; color:var(--muted); line-height:1.35; }}
     label {{ display:flex; flex-direction:column; gap:6px; margin-top:12px; color:var(--muted); font-size:13px; font-weight:800; }}
@@ -885,19 +885,22 @@ def _app_shell(title: str, active: str, body: str) -> str:
   <style>
     :root {{
       color-scheme: light;
-      --bg: #f6f4ef;
-      --ink: #1c1b18;
-      --muted: #68645d;
-      --line: #d8d1c4;
-      --card: #ffffff;
-      --accent: #2f6f5e;
-      --accent-soft: #dfeee8;
-      --warm: #f3c969;
+      --bg: #f5f1e8;
+      --ink: #1d211c;
+      --muted: #6f705f;
+      --line: #d7ccb8;
+      --card: #fffdf8;
+      --accent: #276a54;
+      --accent-strong: #1f5142;
+      --accent-soft: #dcebe3;
+      --warm: #e5b84d;
+      --tomato: #b9472f;
+      --sky: #d9e8ef;
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
-      background: var(--bg);
+      background: linear-gradient(180deg, rgba(217, 232, 239, .5) 0, rgba(245, 241, 232, 0) 240px), var(--bg);
       color: var(--ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }}
@@ -908,26 +911,38 @@ def _app_shell(title: str, active: str, body: str) -> str:
       display: flex;
       gap: 8px;
       padding: 12px 18px;
-      background: rgba(246, 244, 239, .95);
+      background: rgba(245, 241, 232, .95);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(10px);
     }}
-    .route-nav a {{
+    .route-nav a,
+    .route-nav button {{
       flex: 1;
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 11px 8px;
-      background: #fff;
+      background: #fffdf8;
       color: var(--ink);
       font-size: 13px;
       font-weight: 800;
       text-align: center;
       text-decoration: none;
+      font-family: inherit;
+      cursor: pointer;
     }}
     .route-nav a.active {{
       background: var(--accent);
       border-color: var(--accent);
       color: #fff;
+    }}
+    .route-nav form {{
+      flex: .82;
+      margin: 0;
+      display: flex;
+    }}
+    .route-nav button {{
+      width: 100%;
+      color: var(--tomato);
     }}
     .screen {{
       width: min(1180px, 100%);
@@ -956,9 +971,9 @@ def _app_shell(title: str, active: str, body: str) -> str:
       margin-top: 8px;
     }}
     .time-pill {{
-      background: var(--accent-soft);
-      color: var(--accent);
-      border: 1px solid #b7d8cc;
+      background: linear-gradient(135deg, var(--accent-soft), var(--sky));
+      color: var(--accent-strong);
+      border: 1px solid #b9d7cd;
       border-radius: 8px;
       padding: 10px 14px;
       font-weight: 800;
@@ -981,7 +996,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 16px;
-      box-shadow: 0 8px 24px rgba(47, 45, 39, .05);
+      box-shadow: 0 10px 28px rgba(47, 45, 39, .07);
     }}
     .card h2, .card h3 {{
       margin: 0 0 12px;
@@ -999,7 +1014,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
       align-items: start;
     }}
     .week-card strong {{
-      color: var(--accent);
+      color: var(--accent-strong);
       font-size: 18px;
     }}
     .meal-row {{
@@ -1034,7 +1049,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
     }}
     .shopping-group h4 {{
       margin: 0 0 10px;
-      color: var(--accent);
+      color: var(--accent-strong);
       font-size: 13px;
       text-transform: uppercase;
     }}
@@ -1050,7 +1065,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 10px;
-      background: #fbfaf7;
+      background: #fffaf0;
     }}
     .shopping-list li.checked {{
       opacity: .62;
@@ -1064,7 +1079,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
       line-height: 1.25;
     }}
     .buy-line span:last-child {{
-      color: var(--accent);
+      color: var(--accent-strong);
       text-align: right;
       flex-shrink: 0;
     }}
@@ -1093,7 +1108,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
     .command {{
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #fbfaf7;
+      background: #fffaf0;
       padding: 10px;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 13px;
@@ -1114,7 +1129,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #fff;
+      background: #fffdf8;
       color: var(--ink);
       font: inherit;
       font-size: 15px;
@@ -1143,7 +1158,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
     .button {{
       border: 1px solid var(--accent);
       border-radius: 8px;
-      background: var(--accent);
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
       color: #fff;
       cursor: pointer;
       display: inline-flex;
@@ -1156,13 +1171,13 @@ def _app_shell(title: str, active: str, body: str) -> str:
       text-decoration: none;
     }}
     .button.secondary {{
-      background: #fff;
+      background: #fffdf8;
       border-color: var(--line);
       color: var(--ink);
     }}
     .button.danger {{
-      background: #7a3328;
-      border-color: #7a3328;
+      background: var(--tomato);
+      border-color: var(--tomato);
     }}
     .inline-form {{
       margin-top: 10px;
@@ -1244,7 +1259,8 @@ def _app_route_nav(active: str) -> str:
         f'<a data-route-link href="{href}" class="{"active" if key == active else ""}">{label}</a>'
         for key, href, label in routes
     )
-    return f'<nav class="route-nav" aria-label="Navegación">{links}</nav>'
+    logout = '<form method="post" action="/logout"><button type="submit">Salir</button></form>'
+    return f'<nav class="route-nav" aria-label="Navegación">{links}{logout}</nav>'
 
 
 def _week_screen(week: list[dict[str, Any]]) -> str:
@@ -1658,19 +1674,22 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
   <style>
     :root {{
       color-scheme: light;
-      --bg: #f6f4ef;
-      --ink: #1c1b18;
-      --muted: #68645d;
-      --line: #d8d1c4;
-      --card: #ffffff;
-      --accent: #2f6f5e;
-      --accent-soft: #dfeee8;
-      --warm: #f3c969;
+      --bg: #f5f1e8;
+      --ink: #1d211c;
+      --muted: #6f705f;
+      --line: #d7ccb8;
+      --card: #fffdf8;
+      --accent: #276a54;
+      --accent-strong: #1f5142;
+      --accent-soft: #dcebe3;
+      --warm: #e5b84d;
+      --tomato: #b9472f;
+      --sky: #d9e8ef;
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
-      background: var(--bg);
+      background: linear-gradient(180deg, rgba(217, 232, 239, .5) 0, rgba(245, 241, 232, 0) 240px), var(--bg);
       color: var(--ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }}
@@ -1688,21 +1707,33 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       display: flex;
       gap: 8px;
       padding: 10px 18px;
-      background: rgba(246, 244, 239, .94);
+      background: rgba(245, 241, 232, .94);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(10px);
     }}
-    .app-nav a {{
+    .app-nav a,
+    .app-nav button {{
       flex: 1;
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 10px 8px;
-      background: #fff;
+      background: #fffdf8;
       color: var(--ink);
       font-size: 13px;
       font-weight: 800;
       text-align: center;
       text-decoration: none;
+      font-family: inherit;
+      cursor: pointer;
+    }}
+    .app-nav form {{
+      flex: .82;
+      margin: 0;
+      display: flex;
+    }}
+    .app-nav button {{
+      width: 100%;
+      color: var(--tomato);
     }}
     header {{
       display: flex;
@@ -1725,9 +1756,9 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       margin-top: 8px;
     }}
     .time {{
-      background: var(--accent-soft);
-      color: var(--accent);
-      border: 1px solid #b7d8cc;
+      background: linear-gradient(135deg, var(--accent-soft), var(--sky));
+      color: var(--accent-strong);
+      border: 1px solid #b9d7cd;
       border-radius: 8px;
       padding: 10px 14px;
       font-weight: 700;
@@ -1750,7 +1781,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(47, 45, 39, .06);
+      box-shadow: 0 10px 28px rgba(47, 45, 39, .07);
     }}
     .meal {{
       min-height: 176px;
@@ -1760,7 +1791,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       justify-content: space-between;
     }}
     .slot {{
-      color: var(--accent);
+      color: var(--accent-strong);
       font-size: 13px;
       font-weight: 800;
       text-transform: uppercase;
@@ -1784,7 +1815,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       align-self: flex-start;
       margin-top: 16px;
       border: 1px solid #b7d8cc;
-      background: var(--accent);
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
       color: #fff;
       border-radius: 8px;
       padding: 10px 14px;
@@ -1818,7 +1849,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       font-size: 14px;
     }}
     .day:first-of-type {{ border-top: 0; }}
-    .day strong {{ color: var(--accent); grid-row: span 2; }}
+    .day strong {{ color: var(--accent-strong); grid-row: span 2; }}
     .day span {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
     .shopping {{
       max-height: 360px;
@@ -1835,7 +1866,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
     .shopping-group:first-child {{ border-top: 0; padding-top: 0; }}
     .shopping-group h4 {{
       margin: 0 0 8px;
-      color: var(--accent);
+      color: var(--accent-strong);
       font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0;
@@ -1852,7 +1883,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 9px 10px;
-      background: #fbfaf7;
+      background: #fffaf0;
       font-size: 14px;
       line-height: 1.25;
     }}
@@ -1863,7 +1894,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       font-weight: 800;
     }}
     .buy-line span:last-child {{
-      color: var(--accent);
+      color: var(--accent-strong);
       text-align: right;
       flex-shrink: 0;
     }}
@@ -1917,7 +1948,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
     }}
     .close-button {{
       border: 1px solid var(--line);
-      background: #fff;
+      background: #fffdf8;
       color: var(--ink);
       border-radius: 8px;
       min-width: 44px;
@@ -1951,7 +1982,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       padding: 12px;
       border-radius: 8px;
       background: var(--accent-soft);
-      color: var(--accent);
+      color: var(--accent-strong);
       font-weight: 700;
       line-height: 1.3;
     }}
@@ -1969,6 +2000,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
     <a href="/semana">Semana</a>
     <a href="/compra">Compra</a>
     <a href="/config">Config</a>
+    <form method="post" action="/logout"><button type="submit">Salir</button></form>
   </nav>
   <main>
     <section id="hoy">
