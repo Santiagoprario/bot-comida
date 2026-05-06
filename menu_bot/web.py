@@ -60,8 +60,8 @@ async def lifespan(app: FastAPI):
             await telegram_app.shutdown()
 
 
-app = FastAPI(title="Menu Bot", lifespan=lifespan)
-PWA_CACHE_VERSION = "menu-bot-v2"
+app = FastAPI(title="Mesa Lista", lifespan=lifespan)
+PWA_CACHE_VERSION = "menu-bot-v3"
 SESSION_COOKIE = "menu_session"
 CHAT_COOKIE = "menu_chat_id"
 PASSWORD_ITERATIONS = 210_000
@@ -79,15 +79,15 @@ CHEF_STYLES = {
 @app.get("/manifest.webmanifest")
 def manifest() -> Response:
     payload = {
-        "name": "Menú Familiar",
-        "short_name": "Menú",
-        "description": "Menú semanal, recetas y compra familiar.",
+        "name": "Mesa Lista",
+        "short_name": "Mesa",
+        "description": "Menú semanal, recetas y compra para la casa.",
         "start_url": "/",
         "scope": "/",
         "display": "standalone",
         "orientation": "any",
-        "background_color": "#f6f4ef",
-        "theme_color": "#2f6f5e",
+        "background_color": "#fff4e8",
+        "theme_color": "#d84f35",
         "icons": [
             {
                 "src": "/icon.svg",
@@ -140,11 +140,32 @@ self.addEventListener('fetch', (event) => {{
 def app_icon() -> Response:
     svg = """
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#2f6f5e"/>
-  <path d="M152 126h208c18 0 32 14 32 32v220c0 18-14 32-32 32H152c-18 0-32-14-32-32V158c0-18 14-32 32-32Z" fill="#f6f4ef"/>
-  <path d="M176 178h160M176 238h128M176 298h160" stroke="#2f6f5e" stroke-width="28" stroke-linecap="round"/>
-  <circle cx="352" cy="238" r="17" fill="#f3c969"/>
-  <circle cx="352" cy="298" r="17" fill="#f3c969"/>
+  <rect width="512" height="512" rx="104" fill="#d84f35"/>
+  <circle cx="256" cy="250" r="142" fill="#fff4e8"/>
+  <circle cx="256" cy="250" r="92" fill="#ffd166"/>
+  <path d="M184 286c36 34 108 34 144 0" fill="none" stroke="#53386f" stroke-width="26" stroke-linecap="round"/>
+  <path d="M162 154v180M350 154v180" stroke="#53386f" stroke-width="24" stroke-linecap="round"/>
+  <path d="M128 392h256" stroke="#fff4e8" stroke-width="28" stroke-linecap="round"/>
+</svg>
+"""
+    return Response(svg.strip(), media_type="image/svg+xml")
+
+
+@app.get("/brand-plate.svg")
+def brand_plate() -> Response:
+    svg = """
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 520" role="img" aria-label="Mesa con platos">
+  <rect width="760" height="520" rx="34" fill="#fff4e8"/>
+  <path d="M60 360c90 68 210 98 340 86 134-13 246-66 300-146 38-57 16-128-40-154-52-25-108 7-163-25-58-33-75-92-159-92-92 0-126 74-191 103-62 28-128 14-152 85-17 51 14 105 65 143Z" fill="#ffd166"/>
+  <circle cx="306" cy="250" r="122" fill="#fffdf8"/>
+  <circle cx="306" cy="250" r="74" fill="#f7dfc8"/>
+  <circle cx="301" cy="242" r="38" fill="#d84f35"/>
+  <path d="M220 298c52 42 124 43 176 0" fill="none" stroke="#53386f" stroke-width="18" stroke-linecap="round"/>
+  <path d="M502 168c28 20 45 54 45 91 0 62-50 112-112 112-21 0-40-6-57-15" fill="none" stroke="#2d6cdf" stroke-width="18" stroke-linecap="round"/>
+  <path d="M512 104v242M594 108v238" stroke="#53386f" stroke-width="16" stroke-linecap="round"/>
+  <path d="M122 168c-18 34-18 72 1 116" stroke="#d84f35" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="148" cy="384" r="24" fill="#2d6cdf"/>
+  <circle cx="610" cy="372" r="19" fill="#d84f35"/>
 </svg>
 """
     return Response(svg.strip(), media_type="image/svg+xml")
@@ -157,11 +178,11 @@ def offline() -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#2f6f5e">
+  <meta name="theme-color" content="#d84f35">
   <title>Menú sin conexión</title>
   <style>
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f6f4ef; color: #1c1b18; font-family: system-ui, sans-serif; }
-    main { width: min(520px, calc(100vw - 32px)); border: 1px solid #d8d1c4; border-radius: 8px; background: #fff; padding: 24px; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #fff4e8; color: #241b18; font-family: system-ui, sans-serif; }
+    main { width: min(520px, calc(100vw - 32px)); border: 1px solid #ead7c7; border-radius: 8px; background: #fffdf8; padding: 24px; }
     h1 { margin: 0 0 10px; font-size: 28px; }
     p { margin: 0; color: #68645d; line-height: 1.4; }
   </style>
@@ -173,6 +194,27 @@ def offline() -> str:
   </main>
 </body>
 </html>"""
+
+
+def _auth_style() -> str:
+    return """
+    :root { --bg:#fff4e8; --ink:#241b18; --muted:#78685f; --line:#ead7c7; --card:#fffdf8; --accent:#d84f35; --accent-strong:#8f2f22; --blue:#2d6cdf; --plum:#53386f; --butter:#ffd166; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; background:radial-gradient(circle at 15% 12%, rgba(255,209,102,.34), transparent 28%), linear-gradient(135deg, #fff4e8 0%, #fffdf8 52%, #eaf1ff 100%); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:18px; }
+    main { width:min(500px, 100%); background:rgba(255,253,248,.96); border:1px solid var(--line); border-radius:8px; padding:18px; box-shadow:0 18px 44px rgba(83,56,111,.14); }
+    .brand-art { display:block; width:100%; aspect-ratio: 16 / 8.8; object-fit:cover; border:1px solid var(--line); border-radius:8px; margin-bottom:16px; background:#fff4e8; }
+    .brand-mark { display:inline-flex; align-items:center; gap:8px; margin-bottom:8px; color:var(--accent-strong); font-size:13px; font-weight:900; text-transform:uppercase; }
+    .brand-dot { width:12px; height:12px; border-radius:50%; background:var(--butter); box-shadow:14px 0 0 var(--accent), 28px 0 0 var(--blue); }
+    h1 { margin:0 0 8px; font-size:34px; line-height:1; letter-spacing:0; color:var(--plum); }
+    p { margin:0 0 18px; color:var(--muted); line-height:1.35; }
+    label { display:flex; flex-direction:column; gap:6px; margin-top:12px; color:var(--muted); font-size:13px; font-weight:850; }
+    input, select { width:100%; border:1px solid var(--line); border-radius:8px; padding:12px; background:#fff; color:var(--ink); font:inherit; font-weight:650; }
+    input:focus, select:focus { outline:3px solid rgba(216,79,53,.18); border-color:var(--accent); }
+    button { width:100%; margin-top:16px; border:1px solid var(--accent); border-radius:8px; background:linear-gradient(135deg, var(--accent), var(--accent-strong)); color:#fff; padding:13px; font:inherit; font-weight:900; cursor:pointer; }
+    a { color:var(--blue); font-weight:900; }
+    .login-error { border:1px solid #c65b46; background:#fff0eb; color:#7c2c20; border-radius:8px; padding:10px; margin:12px 0; font-weight:850; }
+    @media (max-width: 520px) { body { padding:12px; align-items:start; } main { margin-top:10px; padding:14px; } h1 { font-size:30px; } .brand-art { aspect-ratio: 16 / 9.6; } }
+  """
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -768,7 +810,7 @@ def _send_verification_email(email: str, code: str) -> None:
         raise RuntimeError("Falta configurar SMTP_HOST y SMTP_FROM para enviar el código por email.")
 
     message = EmailMessage()
-    message["Subject"] = "Tu código de activación de Menú Familiar"
+    message["Subject"] = "Tu código de activación de Mesa Lista"
     message["From"] = sender
     message["To"] = email
     message.set_content(
@@ -954,31 +996,24 @@ def _today() -> date:
 
 def _login_screen(next_path: str, error: str | None = None) -> str:
     error_html = f'<div class="login-error">{escape(error)}</div>' if error else ""
+    style = _auth_style()
     return f"""<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#2f6f5e">
-  <title>Ingresar · Menú Familiar</title>
+  <meta name="theme-color" content="#d84f35">
+  <title>Ingresar · Mesa Lista</title>
   <style>
-    :root {{ --bg:#f5f1e8; --ink:#1d211c; --muted:#6f705f; --line:#d7ccb8; --accent:#276a54; --accent-2:#b9472f; }}
-    * {{ box-sizing: border-box; }}
-    body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:linear-gradient(135deg, #f5f1e8 0%, #edf3ea 54%, #f7e8dc 100%); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:20px; }}
-    main {{ width:min(460px, 100%); background:#fffdf8; border:1px solid var(--line); border-radius:8px; padding:22px; box-shadow:0 16px 40px rgba(47,45,39,.12); }}
-    h1 {{ margin:0 0 8px; font-size:32px; letter-spacing:0; }}
-    p {{ margin:0 0 18px; color:var(--muted); line-height:1.35; }}
-    label {{ display:flex; flex-direction:column; gap:6px; margin-top:12px; color:var(--muted); font-size:13px; font-weight:800; }}
-    input, select {{ width:100%; border:1px solid var(--line); border-radius:8px; padding:11px; font:inherit; font-weight:650; }}
-    button {{ width:100%; margin-top:16px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; padding:12px; font:inherit; font-weight:850; cursor:pointer; }}
-    a {{ color:var(--accent); font-weight:850; }}
-    .login-error {{ border:1px solid #b75b4b; background:#fff2ef; color:#7a3328; border-radius:8px; padding:10px; margin:12px 0; font-weight:800; }}
+{style}
   </style>
 </head>
 <body>
   <main>
-    <h1>Menú Familiar</h1>
-    <p>Entrá con tu email y contraseña.</p>
+    <img class="brand-art" src="/brand-plate.svg" alt="">
+    <div class="brand-mark"><span class="brand-dot"></span> Mesa Lista</div>
+    <h1>Qué comemos hoy</h1>
+    <p>Tu menú, recetas y compra de la semana en un lugar simple.</p>
     {error_html}
     <form method="post" action="/login">
       <input type="hidden" name="next" value="{escape(_safe_next(next_path), quote=True)}">
@@ -1002,31 +1037,24 @@ def _register_screen(users: list[dict[str, Any]], next_path: str, error: str | N
         for user in users
     )
     error_html = f'<div class="login-error">{escape(error)}</div>' if error else ""
+    style = _auth_style()
     return f"""<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#2f6f5e">
-  <title>Crear cuenta · Menú Familiar</title>
+  <meta name="theme-color" content="#d84f35">
+  <title>Crear cuenta · Mesa Lista</title>
   <style>
-    :root {{ --bg:#f5f1e8; --ink:#1d211c; --muted:#6f705f; --line:#d7ccb8; --accent:#276a54; --accent-2:#b9472f; }}
-    * {{ box-sizing: border-box; }}
-    body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:linear-gradient(135deg, #f5f1e8 0%, #edf3ea 54%, #f7e8dc 100%); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:20px; }}
-    main {{ width:min(500px, 100%); background:#fffdf8; border:1px solid var(--line); border-radius:8px; padding:22px; box-shadow:0 16px 40px rgba(47,45,39,.12); }}
-    h1 {{ margin:0 0 8px; font-size:32px; letter-spacing:0; }}
-    p {{ margin:0 0 18px; color:var(--muted); line-height:1.35; }}
-    label {{ display:flex; flex-direction:column; gap:6px; margin-top:12px; color:var(--muted); font-size:13px; font-weight:800; }}
-    input, select {{ width:100%; border:1px solid var(--line); border-radius:8px; padding:11px; font:inherit; font-weight:650; }}
-    button {{ width:100%; margin-top:16px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; padding:12px; font:inherit; font-weight:850; cursor:pointer; }}
-    a {{ color:var(--accent); font-weight:850; }}
-    .login-error {{ border:1px solid #b75b4b; background:#fff2ef; color:#7a3328; border-radius:8px; padding:10px; margin:12px 0; font-weight:800; }}
+{style}
   </style>
 </head>
 <body>
   <main>
+    <img class="brand-art" src="/brand-plate.svg" alt="">
+    <div class="brand-mark"><span class="brand-dot"></span> Mesa Lista</div>
     <h1>Crear cuenta</h1>
-    <p>Te vamos a mandar un código al email. Al validarlo, la cuenta queda activada y vinculada al perfil elegido.</p>
+    <p>Te mandamos un código al email y dejamos tu perfil listo para generar menús.</p>
     {error_html}
     <form method="post" action="/register">
       <input type="hidden" name="next" value="{escape(_safe_next(next_path), quote=True)}">
@@ -1052,29 +1080,22 @@ def _register_screen(users: list[dict[str, Any]], next_path: str, error: str | N
 
 def _verify_screen(email: str, next_path: str, error: str | None = None) -> str:
     error_html = f'<div class="login-error">{escape(error)}</div>' if error else ""
+    style = _auth_style()
     return f"""<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#2f6f5e">
-  <title>Activar cuenta · Menú Familiar</title>
+  <meta name="theme-color" content="#d84f35">
+  <title>Activar cuenta · Mesa Lista</title>
   <style>
-    :root {{ --bg:#f5f1e8; --ink:#1d211c; --muted:#6f705f; --line:#d7ccb8; --accent:#276a54; --accent-2:#b9472f; }}
-    * {{ box-sizing: border-box; }}
-    body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:linear-gradient(135deg, #f5f1e8 0%, #edf3ea 54%, #f7e8dc 100%); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:20px; }}
-    main {{ width:min(460px, 100%); background:#fffdf8; border:1px solid var(--line); border-radius:8px; padding:22px; box-shadow:0 16px 40px rgba(47,45,39,.12); }}
-    h1 {{ margin:0 0 8px; font-size:32px; letter-spacing:0; }}
-    p {{ margin:0 0 18px; color:var(--muted); line-height:1.35; }}
-    label {{ display:flex; flex-direction:column; gap:6px; margin-top:12px; color:var(--muted); font-size:13px; font-weight:800; }}
-    input {{ width:100%; border:1px solid var(--line); border-radius:8px; padding:11px; font:inherit; font-weight:650; }}
-    button {{ width:100%; margin-top:16px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; padding:12px; font:inherit; font-weight:850; cursor:pointer; }}
-    a {{ color:var(--accent); font-weight:850; }}
-    .login-error {{ border:1px solid #b75b4b; background:#fff2ef; color:#7a3328; border-radius:8px; padding:10px; margin:12px 0; font-weight:800; }}
+{style}
   </style>
 </head>
 <body>
   <main>
+    <img class="brand-art" src="/brand-plate.svg" alt="">
+    <div class="brand-mark"><span class="brand-dot"></span> Mesa Lista</div>
     <h1>Activar cuenta</h1>
     <p>Ingresá el código de 6 dígitos que enviamos a {escape(email or "tu email")}.</p>
     {error_html}
@@ -1101,31 +1122,33 @@ def _app_shell(title: str, active: str, body: str) -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#2f6f5e">
+  <meta name="theme-color" content="#d84f35">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Menú">
+  <meta name="apple-mobile-web-app-title" content="Mesa">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
-  <title>{escape(title)} · Menú Familiar</title>
+  <title>{escape(title)} · Mesa Lista</title>
   <style>
     :root {{
       color-scheme: light;
-      --bg: #f5f1e8;
-      --ink: #1d211c;
-      --muted: #6f705f;
-      --line: #d7ccb8;
+      --bg: #fff4e8;
+      --ink: #241b18;
+      --muted: #78685f;
+      --line: #ead7c7;
       --card: #fffdf8;
-      --accent: #276a54;
-      --accent-strong: #1f5142;
-      --accent-soft: #dcebe3;
-      --warm: #e5b84d;
-      --tomato: #b9472f;
-      --sky: #d9e8ef;
+      --accent: #d84f35;
+      --accent-strong: #8f2f22;
+      --accent-soft: #ffe2d8;
+      --warm: #ffd166;
+      --tomato: #c8452d;
+      --sky: #eaf1ff;
+      --blue: #2d6cdf;
+      --plum: #53386f;
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
-      background: linear-gradient(180deg, rgba(217, 232, 239, .5) 0, rgba(245, 241, 232, 0) 240px), var(--bg);
+      background: radial-gradient(circle at 10% 0, rgba(255, 209, 102, .32), transparent 270px), linear-gradient(180deg, #fff4e8 0, #fffdf8 260px, #f8efe5 100%);
       color: var(--ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }}
@@ -1136,7 +1159,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
       display: flex;
       gap: 8px;
       padding: 12px 18px;
-      background: rgba(245, 241, 232, .95);
+      background: rgba(255, 244, 232, .95);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(10px);
     }}
@@ -1188,6 +1211,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
       font-size: 42px;
       line-height: 1;
       letter-spacing: 0;
+      color: var(--plum);
     }}
     h2, h3, h4 {{ letter-spacing: 0; }}
     .meta {{
@@ -1198,7 +1222,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
     .time-pill {{
       background: linear-gradient(135deg, var(--accent-soft), var(--sky));
       color: var(--accent-strong);
-      border: 1px solid #b9d7cd;
+      border: 1px solid #f1c6b7;
       border-radius: 8px;
       padding: 10px 14px;
       font-weight: 800;
@@ -1239,7 +1263,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
       align-items: start;
     }}
     .week-card strong {{
-      color: var(--accent-strong);
+      color: var(--plum);
       font-size: 18px;
     }}
     .meal-row {{
@@ -1294,7 +1318,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
     }}
     .shopping-list li.checked {{
       opacity: .62;
-      background: #eef3ef;
+      background: #f4efe9;
     }}
     .buy-line {{
       display: flex;
@@ -1304,7 +1328,7 @@ def _app_shell(title: str, active: str, body: str) -> str:
       line-height: 1.25;
     }}
     .buy-line span:last-child {{
-      color: var(--accent-strong);
+      color: var(--blue);
       text-align: right;
       flex-shrink: 0;
     }}
@@ -1464,6 +1488,9 @@ def _app_shell(title: str, active: str, body: str) -> str:
     }}
     @media (max-width: 900px) {{
       .screen {{ padding: 18px; }}
+      .route-nav {{ overflow-x: auto; padding: 10px 12px; }}
+      .route-nav a, .route-nav button {{ flex: 0 0 auto; min-width: 82px; }}
+      .route-nav form {{ flex: 0 0 auto; }}
       .screen-header {{ align-items: start; }}
       h1 {{ font-size: 34px; }}
       .grid, .shopping-layout, .dish-list {{ grid-template-columns: 1fr; }}
@@ -2012,31 +2039,33 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="refresh" content="900">
-  <meta name="theme-color" content="#2f6f5e">
+  <meta name="theme-color" content="#d84f35">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Menú">
+  <meta name="apple-mobile-web-app-title" content="Mesa">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
-  <title>Menú de hoy</title>
+  <title>Mesa Lista · Hoy</title>
   <style>
     :root {{
       color-scheme: light;
-      --bg: #f5f1e8;
-      --ink: #1d211c;
-      --muted: #6f705f;
-      --line: #d7ccb8;
+      --bg: #fff4e8;
+      --ink: #241b18;
+      --muted: #78685f;
+      --line: #ead7c7;
       --card: #fffdf8;
-      --accent: #276a54;
-      --accent-strong: #1f5142;
-      --accent-soft: #dcebe3;
-      --warm: #e5b84d;
-      --tomato: #b9472f;
-      --sky: #d9e8ef;
+      --accent: #d84f35;
+      --accent-strong: #8f2f22;
+      --accent-soft: #ffe2d8;
+      --warm: #ffd166;
+      --tomato: #c8452d;
+      --sky: #eaf1ff;
+      --blue: #2d6cdf;
+      --plum: #53386f;
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
-      background: linear-gradient(180deg, rgba(217, 232, 239, .5) 0, rgba(245, 241, 232, 0) 240px), var(--bg);
+      background: radial-gradient(circle at 10% 0, rgba(255, 209, 102, .35), transparent 260px), linear-gradient(180deg, #fff4e8 0, #fffdf8 260px, #f8efe5 100%);
       color: var(--ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }}
@@ -2054,7 +2083,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       display: flex;
       gap: 8px;
       padding: 10px 18px;
-      background: rgba(245, 241, 232, .94);
+      background: rgba(255, 244, 232, .94);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(10px);
     }}
@@ -2082,6 +2111,11 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       width: 100%;
       color: var(--tomato);
     }}
+    .app-nav a:first-child {{
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }}
     header {{
       display: flex;
       align-items: end;
@@ -2091,11 +2125,44 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       border-bottom: 1px solid var(--line);
       padding-bottom: 18px;
     }}
+    .today-visual {{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 150px;
+      gap: 16px;
+      align-items: end;
+    }}
+    .brand-chip {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      color: var(--accent-strong);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }}
+    .brand-dot {{
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--warm);
+      box-shadow: 12px 0 0 var(--accent), 24px 0 0 var(--blue);
+    }}
+    .plate-art {{
+      width: 150px;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 12px 28px rgba(83, 56, 111, .12);
+      background: #fff4e8;
+    }}
     h1 {{
       margin: 0;
       font-size: 44px;
       line-height: 1;
       letter-spacing: 0;
+      color: var(--plum);
     }}
     .date {{
       color: var(--muted);
@@ -2105,7 +2172,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
     .time {{
       background: linear-gradient(135deg, var(--accent-soft), var(--sky));
       color: var(--accent-strong);
-      border: 1px solid #b9d7cd;
+      border: 1px solid #f1c6b7;
       border-radius: 8px;
       padding: 10px 14px;
       font-weight: 700;
@@ -2161,7 +2228,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
     .recipe-button {{
       align-self: flex-start;
       margin-top: 16px;
-      border: 1px solid #b7d8cc;
+      border: 1px solid var(--accent);
       background: linear-gradient(135deg, var(--accent), var(--accent-strong));
       color: #fff;
       border-radius: 8px;
@@ -2196,7 +2263,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       font-size: 14px;
     }}
     .day:first-of-type {{ border-top: 0; }}
-    .day strong {{ color: var(--accent-strong); grid-row: span 2; }}
+    .day strong {{ color: var(--plum); grid-row: span 2; }}
     .day span {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
     .shopping {{
       max-height: 360px;
@@ -2213,7 +2280,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
     .shopping-group:first-child {{ border-top: 0; padding-top: 0; }}
     .shopping-group h4 {{
       margin: 0 0 8px;
-      color: var(--accent-strong);
+      color: var(--plum);
       font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0;
@@ -2241,7 +2308,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       font-weight: 800;
     }}
     .buy-line span:last-child {{
-      color: var(--accent-strong);
+      color: var(--blue);
       text-align: right;
       flex-shrink: 0;
     }}
@@ -2335,9 +2402,22 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
     }}
     @media (max-width: 900px) {{
       main {{ grid-template-columns: 1fr; padding: 18px; }}
+      .app-nav {{ overflow-x: auto; padding: 10px 12px; }}
+      .app-nav a, .app-nav button {{ flex: 0 0 auto; min-width: 82px; }}
+      .app-nav form {{ flex: 0 0 auto; }}
       .meals {{ grid-template-columns: 1fr; }}
       h1 {{ font-size: 34px; }}
       .recipe-body {{ grid-template-columns: 1fr; }}
+      header {{ align-items: start; }}
+      .today-visual {{ grid-template-columns: 1fr 86px; align-items: start; }}
+      .plate-art {{ width: 86px; }}
+    }}
+    @media (max-width: 520px) {{
+      main {{ padding: 14px; }}
+      header {{ gap: 10px; }}
+      .today-visual {{ grid-template-columns: 1fr; }}
+      .plate-art {{ display: none; }}
+      .time {{ min-width: 68px; padding: 9px 10px; }}
     }}
   </style>
 </head>
@@ -2353,10 +2433,14 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
   <main>
     <section id="hoy">
       <header>
-        <div>
-          <h1>Menú de hoy</h1>
-          <div class="date">{escape(today_plan["dia"].title())} · {escape(today_plan["fecha"])}</div>
-          <div class="date">{escape(format_weather_summary(today_plan.get("clima")))}</div>
+        <div class="today-visual">
+          <div>
+            <div class="brand-chip"><span class="brand-dot"></span> Mesa Lista</div>
+            <h1>Menú de hoy</h1>
+            <div class="date">{escape(today_plan["dia"].title())} · {escape(today_plan["fecha"])}</div>
+            <div class="date">{escape(format_weather_summary(today_plan.get("clima")))}</div>
+          </div>
+          <img class="plate-art" src="/brand-plate.svg" alt="">
         </div>
         <div class="time">{escape(now)}<span class="tz">GMT-3</span></div>
       </header>
