@@ -65,6 +65,7 @@ Rutas de app:
 /onboarding configuración inicial con 5 preguntas
 /login   ingreso con email y contraseña
 /register creación de cuenta web
+/verify  activación de cuenta con código por email
 ```
 
 Si el usuario todavía no tiene perfil o reglas, la app lo manda a `/onboarding`. Desde `/config` se puede regenerar la semana, editar preferencias, cargar stock de alacena y sumar ofertas sin usar Telegram.
@@ -78,7 +79,7 @@ Login web:
 
 La PWA usa cuentas con email y contraseña. La contraseña se guarda hasheada con PBKDF2-SHA256 y la sesión queda en cookie firmada.
 
-`DASHBOARD_PIN` queda como PIN de alta para crear cuentas nuevas. Una cuenta puede vincularse a un perfil familiar existente o crear un perfil nuevo, que después completa `/onboarding`.
+Al crear una cuenta, la app manda un código de 6 dígitos por email. La cuenta se activa en `/verify` y recién ahí puede iniciar sesión. Una cuenta puede vincularse a un perfil familiar existente o crear un perfil nuevo, que después completa `/onboarding`.
 
 Compra editable:
 
@@ -108,6 +109,11 @@ ALLOWED_CHAT_ID=tu_chat_id
 ALLOWED_CHAT_IDS=tu_chat_id,otro_chat_id
 DASHBOARD_PIN=un_pin
 WEB_SESSION_SECRET=clave_larga_random_para_cookies
+SMTP_HOST=smtp.tu_proveedor.com
+SMTP_PORT=587
+SMTP_USER=usuario_smtp
+SMTP_PASSWORD=password_smtp
+SMTP_FROM=menu@tu_dominio.com
 DB_PATH=/tmp/menu_bot.sqlite3
 TIMEZONE=America/Argentina/Buenos_Aires
 SEED_PATH=data/default_seed.json

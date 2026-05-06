@@ -131,6 +131,17 @@ class Database:
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
 
+                CREATE TABLE IF NOT EXISTS pending_web_accounts (
+                    email TEXT PRIMARY KEY,
+                    chat_id INTEGER NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    display_name TEXT,
+                    code_hash TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
                 CREATE TABLE IF NOT EXISTS community_dishes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     chat_id INTEGER NOT NULL,
@@ -474,6 +485,52 @@ class Database:
         with self.connect() as conn:
             row = conn.execute("SELECT COUNT(*) AS total FROM web_accounts").fetchone()
         return int(row["total"])
+
+    def save_pending_web_account(
+        self,
+        email: str,
+        chat_id: int,
+        password_hash: str,
+        display_name: str | None,
+        code_hash: str,
+        expires_at: str,
+    ) -> None:
+        normalized_email = email.strip().lower()
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO pending_web_accounts(
+                    email, chat_id, password_hash, display_name, code_hash, expires_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(email) DO UPDATE SET
+                    chat_id = excluded.chat_id,
+                    password_hash = excluded.password_hash,
+                    display_name = excluded.display_name,
+                    code_hash = excluded.code_hash,
+                    expires_at = excluded.expires_at,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (normalized_email, chat_id, password_hash, display_name, code_hash, expires_at),
+            )
+
+    def get_pending_web_account(self, email: str) -> dict[str, Any] | None:
+        normalized_email = email.strip().lower()
+        with self.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT email, chat_id, password_hash, display_name, code_hash, expires_at
+                FROM pending_web_accounts
+                WHERE email = ?
+                """,
+                (normalized_email,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def delete_pending_web_account(self, email: str) -> None:
+        normalized_email = email.strip().lower()
+        with self.connect() as conn:
+            conn.execute("DELETE FROM pending_web_accounts WHERE email = ?", (normalized_email,))
 
     def create_community_dish(
         self,

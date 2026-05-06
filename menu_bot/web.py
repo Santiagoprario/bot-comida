@@ -5,8 +5,10 @@ import json
 import hashlib
 import hmac
 import secrets
+import smtplib
 from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from email.message import EmailMessage
 from html import escape
 from typing import Any
 from urllib.parse import parse_qs, urlencode
@@ -102,7 +104,7 @@ def manifest() -> Response:
 def service_worker() -> Response:
     script = f"""
 const CACHE_NAME = '{PWA_CACHE_VERSION}';
-const APP_SHELL = ['/', '/semana', '/compra', '/config', '/platos', '/login', '/register', '/offline', '/manifest.webmanifest', '/icon.svg'];
+const APP_SHELL = ['/', '/semana', '/compra', '/config', '/platos', '/login', '/register', '/verify', '/offline', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {{
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -293,11 +295,7 @@ async def register_submit(request: Request) -> Any:
     email = _form_str(form, "email").lower()
     password = _form_str(form, "password")
     display_name = _form_str(form, "display_name") or None
-    setup_pin = _form_str(form, "setup_pin")
     next_path = _safe_next(_form_str(form, "next", "/"))
-    expected = os.getenv("DASHBOARD_PIN", "").strip()
-    if expected and not hmac.compare_digest(setup_pin, expected):
-        return HTMLResponse(_register_screen(_available_web_users(), next_path, "PIN de alta incorrecto."), status_code=401)
     if "@" not in email or "." not in email:
         return HTMLResponse(_register_screen(_available_web_users(), next_path, "Ingresá un email válido."), status_code=400)
     if len(password) < 8:
@@ -307,9 +305,52 @@ async def register_submit(request: Request) -> Any:
         chat_id = _new_web_chat_id()
     if DB.get_web_account(email):
         return HTMLResponse(_register_screen(_available_web_users(), next_path, "Ese email ya existe."), status_code=409)
-    DB.create_web_account(email, chat_id, _hash_password(password), display_name)
-    if display_name:
-        DB.update_profile(chat_id, {"nombre": display_name})
+    debug_code = os.getenv("EMAIL_DEBUG_CODE", "").strip()
+    code = debug_code if debug_code.isdigit() and len(debug_code) == 6 else f"{secrets.randbelow(1_000_000):06d}"
+    try:
+        _send_verification_email(email, code)
+    except RuntimeError as exc:
+        return HTMLResponse(_register_screen(_available_web_users(), next_path, str(exc)), status_code=503)
+    DB.save_pending_web_account(
+        email,
+        chat_id,
+        _hash_password(password),
+        display_name,
+        _hash_verification_code(email, code),
+        (datetime.now(TZ if isinstance(TZ, ZoneInfo) else ZoneInfo("America/Argentina/Buenos_Aires")) + timedelta(minutes=15)).isoformat(),
+    )
+    return RedirectResponse(f"/verify?{urlencode({'email': email, 'next': next_path})}", status_code=303)
+
+
+@app.get("/verify", response_class=HTMLResponse)
+def verify_page(request: Request, email: str = "", next: str = "/") -> HTMLResponse:
+    return HTMLResponse(_verify_screen(email, next))
+
+
+@app.post("/verify")
+async def verify_submit(request: Request) -> Any:
+    form = _parse_form(await request.body())
+    email = _form_str(form, "email").lower()
+    code = _form_str(form, "code")
+    next_path = _safe_next(_form_str(form, "next", "/"))
+    pending = DB.get_pending_web_account(email)
+    if not pending:
+        return HTMLResponse(_verify_screen(email, next_path, "No hay una cuenta pendiente para ese email."), status_code=404)
+    expires_at = datetime.fromisoformat(str(pending["expires_at"]))
+    now = datetime.now(expires_at.tzinfo) if expires_at.tzinfo else datetime.now()
+    if now > expires_at:
+        DB.delete_pending_web_account(email)
+        return HTMLResponse(_verify_screen(email, next_path, "El código venció. Creá la cuenta de nuevo."), status_code=410)
+    if not hmac.compare_digest(_hash_verification_code(email, code), str(pending["code_hash"])):
+        return HTMLResponse(_verify_screen(email, next_path, "Código incorrecto."), status_code=401)
+    if DB.get_web_account(email):
+        DB.delete_pending_web_account(email)
+        return HTMLResponse(_login_screen(next_path, "La cuenta ya estaba activada. Iniciá sesión."), status_code=409)
+    chat_id = int(pending["chat_id"])
+    DB.create_web_account(email, chat_id, str(pending["password_hash"]), pending.get("display_name"))
+    if pending.get("display_name"):
+        DB.update_profile(chat_id, {"nombre": pending["display_name"]})
+    DB.delete_pending_web_account(email)
     return _session_response(next_path, chat_id, email)
 
 
@@ -709,6 +750,49 @@ def _verify_password(password: str, stored_hash: str) -> bool:
     return hmac.compare_digest(candidate, digest)
 
 
+def _hash_verification_code(email: str, code: str) -> str:
+    payload = f"{email.strip().lower()}:{code.strip()}"
+    return hmac.new(_session_secret().encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _send_verification_email(email: str, code: str) -> None:
+    host = os.getenv("SMTP_HOST", "").strip()
+    port = int(os.getenv("SMTP_PORT", "587"))
+    user = os.getenv("SMTP_USER", "").strip()
+    password = os.getenv("SMTP_PASSWORD", "").strip()
+    sender = os.getenv("SMTP_FROM", user).strip()
+    if os.getenv("EMAIL_DEBUG", "").strip() == "1":
+        print(f"Verification code for {email}: {code}")
+        return
+    if not host or not sender:
+        raise RuntimeError("Falta configurar SMTP_HOST y SMTP_FROM para enviar el código por email.")
+
+    message = EmailMessage()
+    message["Subject"] = "Tu código de activación de Menú Familiar"
+    message["From"] = sender
+    message["To"] = email
+    message.set_content(
+        "Tu código de activación es:\n\n"
+        f"{code}\n\n"
+        "Vence en 15 minutos. Si no pediste esta cuenta, ignorá este email."
+    )
+
+    try:
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, timeout=15) as smtp:
+                if user and password:
+                    smtp.login(user, password)
+                smtp.send_message(message)
+        else:
+            with smtplib.SMTP(host, port, timeout=15) as smtp:
+                smtp.starttls()
+                if user and password:
+                    smtp.login(user, password)
+                smtp.send_message(message)
+    except OSError as exc:
+        raise RuntimeError("No pude enviar el email de activación. Revisá la configuración SMTP.") from exc
+
+
 def _new_web_chat_id() -> int:
     while True:
         chat_id = 900_000_000_000 + secrets.randbelow(99_999_999)
@@ -917,7 +1001,6 @@ def _register_screen(users: list[dict[str, Any]], next_path: str, error: str | N
         f'<option value="{user["chat_id"]}">{escape(user["label"])} · {user["chat_id"]}</option>'
         for user in users
     )
-    setup_pin_label = "PIN de alta" if os.getenv("DASHBOARD_PIN", "").strip() else "PIN de alta opcional"
     error_html = f'<div class="login-error">{escape(error)}</div>' if error else ""
     return f"""<!doctype html>
 <html lang="es">
@@ -943,7 +1026,7 @@ def _register_screen(users: list[dict[str, Any]], next_path: str, error: str | N
 <body>
   <main>
     <h1>Crear cuenta</h1>
-    <p>La cuenta queda vinculada a un perfil de menú. Si elegís perfil nuevo, después completás las 5 preguntas iniciales.</p>
+    <p>Te vamos a mandar un código al email. Al validarlo, la cuenta queda activada y vinculada al perfil elegido.</p>
     {error_html}
     <form method="post" action="/register">
       <input type="hidden" name="next" value="{escape(_safe_next(next_path), quote=True)}">
@@ -959,12 +1042,53 @@ def _register_screen(users: list[dict[str, Any]], next_path: str, error: str | N
       <label>Perfil
         <select name="chat_id">{options}</select>
       </label>
-      <label>{setup_pin_label}
-        <input name="setup_pin" type="password" autocomplete="off">
-      </label>
-      <button type="submit">Crear cuenta</button>
+      <button type="submit">Enviar código</button>
     </form>
     <p style="margin-top:16px;"><a href="/login?next={escape(_safe_next(next_path), quote=True)}">Ya tengo cuenta</a></p>
+  </main>
+</body>
+</html>"""
+
+
+def _verify_screen(email: str, next_path: str, error: str | None = None) -> str:
+    error_html = f'<div class="login-error">{escape(error)}</div>' if error else ""
+    return f"""<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#2f6f5e">
+  <title>Activar cuenta · Menú Familiar</title>
+  <style>
+    :root {{ --bg:#f5f1e8; --ink:#1d211c; --muted:#6f705f; --line:#d7ccb8; --accent:#276a54; --accent-2:#b9472f; }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin:0; min-height:100vh; display:grid; place-items:center; background:linear-gradient(135deg, #f5f1e8 0%, #edf3ea 54%, #f7e8dc 100%); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui, sans-serif; padding:20px; }}
+    main {{ width:min(460px, 100%); background:#fffdf8; border:1px solid var(--line); border-radius:8px; padding:22px; box-shadow:0 16px 40px rgba(47,45,39,.12); }}
+    h1 {{ margin:0 0 8px; font-size:32px; letter-spacing:0; }}
+    p {{ margin:0 0 18px; color:var(--muted); line-height:1.35; }}
+    label {{ display:flex; flex-direction:column; gap:6px; margin-top:12px; color:var(--muted); font-size:13px; font-weight:800; }}
+    input {{ width:100%; border:1px solid var(--line); border-radius:8px; padding:11px; font:inherit; font-weight:650; }}
+    button {{ width:100%; margin-top:16px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; padding:12px; font:inherit; font-weight:850; cursor:pointer; }}
+    a {{ color:var(--accent); font-weight:850; }}
+    .login-error {{ border:1px solid #b75b4b; background:#fff2ef; color:#7a3328; border-radius:8px; padding:10px; margin:12px 0; font-weight:800; }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Activar cuenta</h1>
+    <p>Ingresá el código de 6 dígitos que enviamos a {escape(email or "tu email")}.</p>
+    {error_html}
+    <form method="post" action="/verify">
+      <input type="hidden" name="next" value="{escape(_safe_next(next_path), quote=True)}">
+      <label>Email
+        <input name="email" type="email" value="{escape(email, quote=True)}" required>
+      </label>
+      <label>Código
+        <input name="code" inputmode="numeric" pattern="[0-9]{{6}}" autocomplete="one-time-code" required>
+      </label>
+      <button type="submit">Activar cuenta</button>
+    </form>
+    <p style="margin-top:16px;"><a href="/register?next={escape(_safe_next(next_path), quote=True)}">Enviar otro código</a></p>
   </main>
 </body>
 </html>"""
