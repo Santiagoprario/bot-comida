@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from telegram.ext import Application
 
 from .bot import DB, TZ, build_application
+from .disco import DEFAULT_SALES_CHANNEL, format_disco_product_list, simulate_disco_purchase
 from .planner import (
     DAYS,
     MEALS,
@@ -93,7 +94,7 @@ def manifest() -> Response:
 def service_worker() -> Response:
     script = f"""
 const CACHE_NAME = '{PWA_CACHE_VERSION}';
-const APP_SHELL = ['/', '/offline', '/manifest.webmanifest', '/icon.svg'];
+const APP_SHELL = ['/', '/semana', '/compra', '/config', '/offline', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {{
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -178,6 +179,40 @@ def home(request: Request, pin: str | None = None, chat_id: int | None = None) -
     return _page(today_plan, weekly["plan"], shopping, user["conditions"])
 
 
+@app.get("/semana", response_class=HTMLResponse)
+def week_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> str:
+    data = _app_data(request, pin, chat_id)
+    body = _week_screen(data["weekly"]["plan"])
+    return _app_shell("Semana", "semana", body)
+
+
+@app.get("/compra", response_class=HTMLResponse)
+def shopping_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> str:
+    data = _app_data(request, pin, chat_id)
+    shopping = format_shopping_list(
+        data["weekly"]["shopping_list"],
+        data["preferences"],
+        data["pantry"],
+    )
+    sales_channel = str(data["user"]["profile"].get("disco_sc") or DEFAULT_SALES_CHANNEL)
+    max_items = int(os.getenv("DISCO_SIMULATION_LIMIT", "14"))
+    disco_lines, missing = simulate_disco_purchase(
+        data["weekly"]["shopping_list"],
+        sales_channel=sales_channel,
+        max_items=max_items,
+    )
+    disco_text = format_disco_product_list(disco_lines, missing, sales_channel)
+    body = _shopping_screen(shopping, disco_text)
+    return _app_shell("Compra", "compra", body)
+
+
+@app.get("/config", response_class=HTMLResponse)
+def config_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> str:
+    data = _app_data(request, pin, chat_id)
+    body = _config_screen(data["chat_id"], data["user"], data["pantry"], DB.list_offers(data["chat_id"]))
+    return _app_shell("Config", "config", body)
+
+
 @app.get("/api/menu")
 def api_menu(request: Request, pin: str | None = None, chat_id: int | None = None) -> JSONResponse:
     _guard_web(request, pin)
@@ -218,6 +253,23 @@ def _active_chat_id(requested_chat_id: int | None = None) -> int:
     return chat_ids[0]
 
 
+def _app_data(request: Request, pin: str | None, chat_id: int | None) -> dict[str, Any]:
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id)
+    today = _today()
+    weekly = _get_or_create(active_chat_id, today)
+    user = DB.get_user(active_chat_id)
+    return {
+        "chat_id": active_chat_id,
+        "today": today,
+        "weekly": weekly,
+        "today_plan": weekly["plan"][today.weekday()],
+        "user": user,
+        "preferences": DB.get_product_preferences(active_chat_id),
+        "pantry": DB.list_pantry_items(active_chat_id),
+    }
+
+
 def _get_or_create(chat_id: int, day: date) -> dict[str, Any]:
     start = week_start_for(day)
     weekly = DB.get_weekly_plan(chat_id, start.isoformat())
@@ -245,6 +297,393 @@ def _plan_needs_refresh(plan: list[dict[str, Any]]) -> bool:
 
 def _today() -> date:
     return datetime.now(TZ if isinstance(TZ, ZoneInfo) else ZoneInfo("America/Argentina/Buenos_Aires")).date()
+
+
+def _app_shell(title: str, active: str, body: str) -> str:
+    nav = _app_route_nav(active)
+    local_now = datetime.now(TZ if isinstance(TZ, ZoneInfo) else ZoneInfo("America/Argentina/Buenos_Aires"))
+    return f"""<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#2f6f5e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Menú">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <title>{escape(title)} · Menú Familiar</title>
+  <style>
+    :root {{
+      color-scheme: light;
+      --bg: #f6f4ef;
+      --ink: #1c1b18;
+      --muted: #68645d;
+      --line: #d8d1c4;
+      --card: #ffffff;
+      --accent: #2f6f5e;
+      --accent-soft: #dfeee8;
+      --warm: #f3c969;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }}
+    .route-nav {{
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      gap: 8px;
+      padding: 12px 18px;
+      background: rgba(246, 244, 239, .95);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }}
+    .route-nav a {{
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+      text-decoration: none;
+    }}
+    .route-nav a.active {{
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }}
+    .screen {{
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 24px;
+    }}
+    .screen-header {{
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 16px;
+    }}
+    h1 {{
+      margin: 0;
+      font-size: 42px;
+      line-height: 1;
+      letter-spacing: 0;
+    }}
+    h2, h3, h4 {{ letter-spacing: 0; }}
+    .meta {{
+      color: var(--muted);
+      font-size: 15px;
+      margin-top: 8px;
+    }}
+    .time-pill {{
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid #b7d8cc;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-weight: 800;
+      min-width: 86px;
+      text-align: center;
+    }}
+    .time-pill span {{
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 3px;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }}
+    .card {{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(47, 45, 39, .05);
+    }}
+    .card h2, .card h3 {{
+      margin: 0 0 12px;
+      font-size: 20px;
+    }}
+    .stack {{
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }}
+    .week-card {{
+      display: grid;
+      grid-template-columns: 140px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }}
+    .week-card strong {{
+      color: var(--accent);
+      font-size: 18px;
+    }}
+    .meal-row {{
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 10px;
+      padding: 7px 0;
+      border-top: 1px solid var(--line);
+      font-size: 14px;
+    }}
+    .meal-row:first-child {{ border-top: 0; padding-top: 0; }}
+    .meal-row span:first-child {{
+      color: var(--muted);
+      font-weight: 800;
+    }}
+    .shopping-layout {{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(340px, .8fr);
+      gap: 16px;
+      align-items: start;
+    }}
+    .shopping-column {{
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }}
+    .shopping-group {{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }}
+    .shopping-group h4 {{
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 13px;
+      text-transform: uppercase;
+    }}
+    .shopping-list {{
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }}
+    .shopping-list li {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfaf7;
+    }}
+    .buy-line {{
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 800;
+      line-height: 1.25;
+    }}
+    .buy-line span:last-child {{
+      color: var(--accent);
+      text-align: right;
+      flex-shrink: 0;
+    }}
+    .buy-notes {{
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }}
+    .kv {{
+      display: grid;
+      grid-template-columns: 160px minmax(0, 1fr);
+      gap: 8px 12px;
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+    }}
+    .kv:first-of-type {{ border-top: 0; padding-top: 0; }}
+    .kv dt {{
+      color: var(--muted);
+      font-weight: 800;
+    }}
+    .kv dd {{
+      margin: 0;
+      overflow-wrap: anywhere;
+    }}
+    .command {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfaf7;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }}
+    @media (max-width: 900px) {{
+      .screen {{ padding: 18px; }}
+      .screen-header {{ align-items: start; }}
+      h1 {{ font-size: 34px; }}
+      .grid, .shopping-layout {{ grid-template-columns: 1fr; }}
+      .week-card {{ grid-template-columns: 1fr; }}
+      .kv {{ grid-template-columns: 1fr; }}
+    }}
+  </style>
+</head>
+<body>
+  {nav}
+  <main class="screen">
+    <header class="screen-header">
+      <div>
+        <h1>{escape(title)}</h1>
+        <div class="meta">Menú Familiar · {escape(local_now.strftime("%d/%m/%Y"))}</div>
+      </div>
+      <div class="time-pill">{escape(local_now.strftime("%H:%M"))}<span>GMT-3</span></div>
+    </header>
+    {body}
+  </main>
+  <script>
+    const params = window.location.search;
+    if (params) {{
+      document.querySelectorAll('[data-route-link]').forEach((link) => {{
+        link.href = link.getAttribute('href') + params;
+      }});
+    }}
+    if ('serviceWorker' in navigator) {{
+      window.addEventListener('load', () => {{
+        navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+      }});
+    }}
+  </script>
+</body>
+</html>"""
+
+
+def _app_route_nav(active: str) -> str:
+    routes = [
+        ("hoy", "/", "Hoy"),
+        ("semana", "/semana", "Semana"),
+        ("compra", "/compra", "Compra"),
+        ("config", "/config", "Config"),
+    ]
+    links = "".join(
+        f'<a data-route-link href="{href}" class="{"active" if key == active else ""}">{label}</a>'
+        for key, href, label in routes
+    )
+    return f'<nav class="route-nav" aria-label="Navegación">{links}</nav>'
+
+
+def _week_screen(week: list[dict[str, Any]]) -> str:
+    cards = []
+    for day in week:
+        rows = "".join(
+            f"""
+            <div class="meal-row">
+              <span>{escape(slot.title())}</span>
+              <span>{escape(day["comidas"][slot]["nombre"])}</span>
+            </div>
+            """
+            for slot in SLOTS
+        )
+        cards.append(
+            f"""
+            <article class="card week-card">
+              <div>
+                <strong>{escape(day["dia"].title())}</strong>
+                <div class="meta">{escape(day["fecha"])}</div>
+                <div class="meta">{escape(format_weather_summary(day.get("clima")))}</div>
+              </div>
+              <div>{rows}</div>
+            </article>
+            """
+        )
+    return f'<section class="stack">{"".join(cards)}</section>'
+
+
+def _shopping_screen(shopping: str, disco_text: str) -> str:
+    return f"""
+    <section class="shopping-layout">
+      <div class="shopping-column">
+        <div class="card">
+          <h2>Lista por rubro</h2>
+          <div class="stack">{_shopping_markup(shopping)}</div>
+        </div>
+      </div>
+      <div class="shopping-column">
+        <div class="card">
+          <h2>Productos Disco</h2>
+          <div class="stack">{_shopping_markup(disco_text)}</div>
+        </div>
+      </div>
+    </section>
+    """
+
+
+def _config_screen(
+    chat_id: int,
+    user: dict[str, Any],
+    pantry: dict[str, float],
+    offers: list[dict[str, str | None]],
+) -> str:
+    profile = _dict_details(user["profile"])
+    conditions = _dict_details(user["conditions"])
+    stock = "".join(f"<div class=\"command\">{escape(item)} = {qty:g}</div>" for item, qty in pantry.items())
+    if not stock:
+        stock = "<div class=\"meta\">Sin stock cargado.</div>"
+    offer_rows = "".join(
+        f"<div class=\"command\">{escape(row['item'])} {escape(row.get('price') or '')} {escape(row.get('note') or '')}</div>"
+        for row in offers
+    )
+    if not offer_rows:
+        offer_rows = "<div class=\"meta\">Sin ofertas cargadas.</div>"
+    return f"""
+    <section class="grid">
+      <article class="card">
+        <h2>Perfil</h2>
+        <dl class="kv">
+          <dt>Chat ID</dt><dd>{chat_id}</dd>
+        </dl>
+        {profile}
+      </article>
+      <article class="card">
+        <h2>Reglas</h2>
+        {conditions}
+      </article>
+      <article class="card">
+        <h2>Stock</h2>
+        <div class="stack">{stock}</div>
+      </article>
+      <article class="card">
+        <h2>Ofertas</h2>
+        <div class="stack">{offer_rows}</div>
+      </article>
+      <article class="card">
+        <h2>Editar desde Telegram</h2>
+        <div class="stack">
+          <div class="command">/perfil personas=4, ciudad=Santa Clara del Mar</div>
+          <div class="command">/condiciones preferencias=milanesas pastas pollo</div>
+          <div class="command">/stock arroz=1, huevos=12</div>
+          <div class="command">/oferta leche zero lactosa 4x3</div>
+        </div>
+      </article>
+    </section>
+    """
+
+
+def _dict_details(values: dict[str, Any]) -> str:
+    if not values:
+        return '<div class="meta">Sin datos.</div>'
+    rows = "".join(
+        f"<dt>{escape(str(key))}</dt><dd>{escape(str(value))}</dd>"
+        for key, value in values.items()
+    )
+    return f'<dl class="kv">{rows}</dl>'
 
 
 def _shopping_markup(shopping: str) -> str:
@@ -649,9 +1088,10 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
 </head>
 <body>
   <nav class="app-nav" aria-label="Navegación">
-    <a href="#hoy">Hoy</a>
-    <a href="#semana">Semana</a>
-    <a href="#compra">Compra</a>
+    <a href="/">Hoy</a>
+    <a href="/semana">Semana</a>
+    <a href="/compra">Compra</a>
+    <a href="/config">Config</a>
   </nav>
   <main>
     <section id="hoy">

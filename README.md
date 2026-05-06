@@ -54,6 +54,15 @@ La pantalla se refresca sola cada 15 minutos.
 
 El frontend incluye manifest y service worker, por lo que puede instalarse como app desde el navegador compatible.
 
+Rutas de app:
+
+```text
+/        menú de hoy
+/semana  semana completa
+/compra  compra por rubro y productos sugeridos
+/config  perfil, reglas, stock y ofertas
+```
+
 ## Deploy gratis en Render
 
 El proyecto incluye `render.yaml`. En Render:
