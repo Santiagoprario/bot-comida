@@ -31,6 +31,7 @@ from .planner import (
     format_quantity,
     format_shopping_list,
     generate_week,
+    replace_meal,
     week_start_for,
 )
 from .seed import seed_default_user
@@ -62,7 +63,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Mesa Lista", lifespan=lifespan)
-PWA_CACHE_VERSION = "menu-bot-v4"
+PWA_CACHE_VERSION = "menu-bot-v5"
 SESSION_COOKIE = "menu_session"
 CHAT_COOKIE = "menu_chat_id"
 PASSWORD_ITERATIONS = 210_000
@@ -105,7 +106,7 @@ def manifest() -> Response:
 def service_worker() -> Response:
     script = f"""
 const CACHE_NAME = '{PWA_CACHE_VERSION}';
-const APP_SHELL = ['/', '/semana', '/compra', '/config', '/platos', '/login', '/register', '/verify', '/offline', '/manifest.webmanifest', '/icon.svg'];
+const APP_SHELL = ['/', '/semana', '/compra', '/random', '/config', '/platos', '/login', '/register', '/verify', '/offline', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {{
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -232,7 +233,7 @@ def home(request: Request, pin: str | None = None, chat_id: int | None = None) -
     preferences = DB.get_product_preferences(chat_id)
     pantry = DB.list_pantry_items(chat_id)
     shopping = format_shopping_list(weekly["shopping_list"], preferences, pantry)
-    return _page(today_plan, weekly["plan"], shopping, user["conditions"])
+    return _page(today_plan, weekly["plan"], shopping, user["conditions"], chat_id, pin)
 
 
 @app.get("/semana", response_class=HTMLResponse)
@@ -292,6 +293,17 @@ def dishes_page(request: Request, pin: str | None = None, chat_id: int | None = 
         return _redirect("/onboarding", data["chat_id"], pin)
     body = _dishes_screen(data["chat_id"], pin, DB.list_community_dishes(data["chat_id"]))
     return _app_shell("Platos", "platos", body)
+
+
+@app.get("/random", response_class=HTMLResponse)
+def random_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
+    if gate := _login_redirect_if_needed(request, pin):
+        return gate
+    data = _app_data(request, pin, chat_id)
+    if data["needs_onboarding"]:
+        return _redirect("/onboarding", data["chat_id"], pin)
+    body = _random_screen(data["chat_id"], pin, _random_meal(data["chat_id"], data["today"]))
+    return _app_shell("Random", "random", body)
 
 
 @app.get("/onboarding", response_class=HTMLResponse)
@@ -545,6 +557,45 @@ async def action_rate_dish(request: Request) -> RedirectResponse:
         )
         _clear_current_week(active_chat_id)
     return _redirect("/platos", active_chat_id, pin)
+
+
+@app.post("/actions/dislike_meal")
+async def action_dislike_meal(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id, request)
+    slot = _form_str(form, "slot")
+    scope = _form_str(form, "scope", "plato")
+    today = _today()
+    weekly = _get_or_create(active_chat_id, today)
+    day_index = today.weekday()
+    if slot not in weekly["plan"][day_index]["comidas"]:
+        return _redirect("/", active_chat_id, pin)
+
+    meal = weekly["plan"][day_index]["comidas"][slot]
+    feedback_item = _feedback_item_for_scope(meal, scope)
+    DB.add_feedback(active_chat_id, feedback_item, "negative", scope)
+
+    user = DB.get_user(active_chat_id)
+    conditions, blocked_names = _conditions_with_feedback(active_chat_id, user["conditions"])
+    if scope != "plato":
+        conditions["evitar"] = f"{conditions.get('evitar', '')} {feedback_item}".strip()
+    replacement, shopping = replace_meal(
+        weekly["plan"],
+        day_index,
+        slot,
+        user["profile"],
+        conditions,
+        DB.list_offers(active_chat_id),
+        weather=weekly["plan"][day_index].get("clima"),
+        custom_meals=DB.list_community_dishes(active_chat_id, active_only=True),
+        blocked_meal_names=blocked_names,
+    )
+    DB.save_weekly_plan(active_chat_id, week_start_for(today).isoformat(), weekly["plan"], shopping)
+    DB.add_feedback(active_chat_id, str(replacement["nombre"]), "replacement", f"{scope}: {feedback_item}")
+    return _redirect("/", active_chat_id, pin)
 
 
 @app.post("/actions/stock")
@@ -968,6 +1019,33 @@ def _quantity_number(raw: str) -> float:
         return 0
 
 
+def _feedback_item_for_scope(meal: dict[str, Any], scope: str) -> str:
+    if scope == "principal":
+        return str(meal.get("proteina") or meal.get("nombre") or "").strip().lower()
+    if scope == "acompañamiento":
+        side_items = _side_ingredients(meal)
+        if side_items:
+            return " ".join(side_items).strip().lower()
+    return str(meal.get("nombre") or "").strip().lower()
+
+
+def _side_ingredients(meal: dict[str, Any]) -> list[str]:
+    protein_words = _simple_words(str(meal.get("proteina") or ""))
+    sides: list[str] = []
+    for ingredient in (meal.get("ingredientes") or {}):
+        ingredient_text = str(ingredient).strip().lower()
+        ingredient_words = _simple_words(ingredient_text)
+        if ingredient_words and ingredient_words.isdisjoint(protein_words):
+            sides.append(ingredient_text)
+    return sides
+
+
+def _simple_words(text: str) -> set[str]:
+    normalized = text.lower()
+    replacements = str.maketrans("áéíóúüñ", "aeiouun")
+    return {part for part in normalized.translate(replacements).replace("-", " ").split() if len(part) > 2}
+
+
 def _parse_tags(raw: str) -> list[str]:
     return [tag.strip().lower() for tag in raw.replace(";", ",").split(",") if tag.strip()]
 
@@ -978,6 +1056,73 @@ def _clear_current_week(chat_id: int) -> None:
         conn.execute("DELETE FROM weekly_plans WHERE chat_id = ? AND week_start = ?", (chat_id, start))
 
 
+def _conditions_with_feedback(chat_id: int, conditions: dict[str, Any]) -> tuple[dict[str, Any], set[str]]:
+    updated = dict(conditions)
+    avoid_items: list[str] = []
+    blocked_names: set[str] = set()
+    for row in DB.list_feedback(chat_id, "negative"):
+        item = str(row["item"]).strip()
+        scope = str(row.get("note") or "")
+        if not item:
+            continue
+        if scope == "plato":
+            blocked_names.add(item)
+        else:
+            avoid_items.append(item)
+    if avoid_items:
+        updated["evitar"] = f"{updated.get('evitar', '')} {' '.join(avoid_items)}".strip()
+    return updated, blocked_names
+
+
+def _random_meal(chat_id: int, today: date) -> dict[str, Any]:
+    user = DB.get_user(chat_id)
+    conditions, blocked_names = _conditions_with_feedback(chat_id, user["conditions"])
+    avoid_words = _simple_words(str(conditions.get("evitar", "")))
+    candidates: list[dict[str, Any]] = []
+    for meal_type in ("almuerzo", "cena"):
+        for meal in MEALS[meal_type]:
+            haystack = _simple_words(f"{meal.name} {meal.protein} {' '.join(meal.ingredients)} {' '.join(meal.tags)}")
+            if meal.name.lower() in blocked_names or haystack & avoid_words:
+                continue
+            if "delivery" in meal.tags:
+                continue
+            candidates.append(
+                {
+                    "nombre": meal.name,
+                    "prep": meal.prep,
+                    "proteina": meal.protein,
+                    "ingredientes": meal.ingredients,
+                    "porciones": int(user["profile"].get("personas") or 2),
+                }
+            )
+    for dish in DB.list_community_dishes(chat_id, active_only=True):
+        if str(dish.get("slot", "")).lower() not in {"almuerzo", "cena"}:
+            continue
+        name = str(dish["name"])
+        if name.lower() in blocked_names:
+            continue
+        candidates.append(
+            {
+                "nombre": name,
+                "prep": str(dish.get("prep") or "Preparar según la receta cargada."),
+                "proteina": str(dish.get("protein") or "usuario"),
+                "ingredientes": dish.get("ingredients") or {},
+                "porciones": int(user["profile"].get("personas") or 2),
+            }
+        )
+    if not candidates:
+        fallback = MEALS["cena"][0]
+        return {
+            "nombre": fallback.name,
+            "prep": fallback.prep,
+            "proteina": fallback.protein,
+            "ingredientes": fallback.ingredients,
+            "porciones": int(user["profile"].get("personas") or 2),
+        }
+    seed = f"{chat_id}-{today.isoformat()}-{datetime.now(TZ if isinstance(TZ, ZoneInfo) else ZoneInfo('America/Argentina/Buenos_Aires')).timestamp()}-{secrets.randbelow(100000)}"
+    return candidates[sum(ord(char) for char in seed) % len(candidates)]
+
+
 def _get_or_create(chat_id: int, day: date) -> dict[str, Any]:
     start = week_start_for(day)
     weekly = DB.get_weekly_plan(chat_id, start.isoformat())
@@ -985,13 +1130,15 @@ def _get_or_create(chat_id: int, day: date) -> dict[str, Any]:
         return weekly
     user = DB.get_user(chat_id)
     offers = DB.list_offers(chat_id)
+    conditions, blocked_names = _conditions_with_feedback(chat_id, user["conditions"])
     plan, shopping = generate_week(
         start,
         user["profile"],
-        user["conditions"],
+        conditions,
         offers,
         fetch_weather_context(user["profile"]),
         DB.list_community_dishes(chat_id, active_only=True),
+        blocked_names,
     )
     DB.save_weekly_plan(chat_id, start.isoformat(), plan, shopping)
     return {"plan": plan, "shopping_list": shopping}
@@ -1383,6 +1530,70 @@ def _app_shell(title: str, active: str, body: str) -> str:
       margin: 0 0 8px;
       font-size: 19px;
     }}
+    .random-stage {{
+      position: relative;
+      min-height: 300px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(135deg, #fffdf8 0%, #fff4e8 54%, #eaf1ff 100%);
+      margin-bottom: 16px;
+    }}
+    .random-card {{
+      position: relative;
+      z-index: 1;
+      width: min(560px, calc(100% - 28px));
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 253, 248, .94);
+      box-shadow: 0 18px 44px rgba(83, 56, 111, .14);
+      animation: random-pop .5s ease-out both;
+    }}
+    .random-card h2 {{
+      margin: 8px 0 10px;
+      color: var(--plum);
+      font-size: 32px;
+      line-height: 1.05;
+    }}
+    .random-orbit {{
+      position: absolute;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      animation: random-spin 5s linear infinite;
+    }}
+    .random-orbit span {{
+      position: absolute;
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: var(--warm);
+    }}
+    .random-orbit span:nth-child(1) {{ top: 0; left: 96px; }}
+    .random-orbit span:nth-child(2) {{ right: 0; top: 96px; background: var(--accent); }}
+    .random-orbit span:nth-child(3) {{ bottom: 0; left: 96px; background: var(--blue); }}
+    .random-orbit span:nth-child(4) {{ left: 0; top: 96px; background: var(--plum); }}
+    .ingredients, .steps {{
+      margin: 0;
+      padding-left: 20px;
+      color: var(--ink);
+      line-height: 1.45;
+    }}
+    .ingredients li, .steps li {{
+      margin: 8px 0;
+    }}
+    @keyframes random-spin {{
+      from {{ transform: rotate(0deg) scale(1); }}
+      50% {{ transform: rotate(180deg) scale(1.08); }}
+      to {{ transform: rotate(360deg) scale(1); }}
+    }}
+    @keyframes random-pop {{
+      from {{ opacity: 0; transform: translateY(12px) scale(.96); }}
+      to {{ opacity: 1; transform: translateY(0) scale(1); }}
+    }}
     .badge-row {{
       display: flex;
       flex-wrap: wrap;
@@ -1546,6 +1757,7 @@ def _app_route_nav(active: str) -> str:
         ("hoy", "/", "Hoy"),
         ("semana", "/semana", "Semana"),
         ("compra", "/compra", "Compra"),
+        ("random", "/random", "Random"),
         ("platos", "/platos", "Platos"),
         ("config", "/config", "Config"),
     ]
@@ -1832,6 +2044,41 @@ def _dishes_screen(chat_id: int, pin: str | None, dishes: list[dict[str, Any]]) 
     """
 
 
+def _random_screen(chat_id: int, pin: str | None, meal: dict[str, Any]) -> str:
+    hidden = _hidden_context(chat_id, pin)
+    recipe = _recipe_for("random", meal, [])
+    ingredients = "".join(f"<li>{escape(item)}</li>" for item in recipe["ingredients"])
+    steps = "".join(f"<li>{escape(step)}</li>" for step in recipe["steps"])
+    return f"""
+    <section class="random-stage">
+      <div class="random-orbit" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <article class="random-card">
+        <div class="slot">Random rico</div>
+        <h2>{escape(str(meal["nombre"]))}</h2>
+        <p>{escape(_short_description(meal))}</p>
+        <div class="actions">
+          <form method="get" action="/random">
+            {hidden}
+            <button class="button" type="submit">Tirar otra</button>
+          </form>
+        </div>
+      </article>
+    </section>
+    <section class="grid">
+      <article class="card">
+        <h2>Ingredientes</h2>
+        <ul class="ingredients">{ingredients}</ul>
+      </article>
+      <article class="card">
+        <h2>Paso a paso</h2>
+        <ol class="steps">{steps}</ol>
+      </article>
+    </section>
+    """
+
+
 def _dish_card(chat_id: int, pin: str | None, dish: dict[str, Any]) -> str:
     hidden = _hidden_context(chat_id, pin)
     tags = "".join(f'<span class="badge">{escape(str(tag))}</span>' for tag in dish.get("tags", []))
@@ -2021,17 +2268,47 @@ def _shopping_item_markup(
     )
 
 
-def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str, conditions: dict[str, Any]) -> str:
+def _page(
+    today_plan: dict[str, Any],
+    week: list[dict[str, Any]],
+    shopping: str,
+    conditions: dict[str, Any],
+    chat_id: int,
+    pin: str | None,
+) -> str:
     meals = today_plan["comidas"]
     chef_preferences = _chef_preferences(conditions)
     recipes = [_recipe_for(slot, meals[slot], chef_preferences) for slot in SLOTS]
+    hidden = _hidden_context(chat_id, pin)
     meal_cards = "\n".join(
         f"""
         <article class="meal">
           <div class="slot">{escape(slot.title())}</div>
           <h2>{escape(meals[slot]["nombre"])}</h2>
           <p>{escape(_short_description(meals[slot]))}</p>
-          <button class="recipe-button" type="button" data-recipe="{index}">Ver receta</button>
+          <div class="meal-actions">
+            <button class="recipe-button" type="button" data-recipe="{index}">Ver receta</button>
+            <form method="post" action="/actions/dislike_meal">
+              {hidden}
+              <input type="hidden" name="slot" value="{escape(slot, quote=True)}">
+              <input type="hidden" name="scope" value="plato">
+              <button class="swap-button" type="submit">No más este plato</button>
+            </form>
+            <div class="split-actions">
+              <form method="post" action="/actions/dislike_meal">
+                {hidden}
+                <input type="hidden" name="slot" value="{escape(slot, quote=True)}">
+                <input type="hidden" name="scope" value="principal">
+                <button class="mini-button" type="submit">Cambiar principal</button>
+              </form>
+              <form method="post" action="/actions/dislike_meal">
+                {hidden}
+                <input type="hidden" name="slot" value="{escape(slot, quote=True)}">
+                <input type="hidden" name="scope" value="acompañamiento">
+                <button class="mini-button" type="submit">Cambiar acomp.</button>
+              </form>
+            </div>
+          </div>
         </article>
         """
         for index, slot in enumerate(SLOTS)
@@ -2246,7 +2523,38 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
       font-weight: 800;
       cursor: pointer;
     }}
-    .recipe-button:active {{
+    .meal-actions {{
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }}
+    .meal-actions form {{
+      margin: 0;
+    }}
+    .recipe-button, .swap-button, .mini-button {{
+      width: 100%;
+    }}
+    .swap-button, .mini-button {{
+      border: 1px solid var(--line);
+      background: #fff7ef;
+      color: var(--plum);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-weight: 850;
+      cursor: pointer;
+    }}
+    .split-actions {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .mini-button {{
+      min-height: 40px;
+      font-size: 12px;
+      color: var(--accent-strong);
+    }}
+    .recipe-button:active, .swap-button:active, .mini-button:active {{
       transform: translateY(1px);
     }}
     aside {{
@@ -2436,6 +2744,7 @@ def _page(today_plan: dict[str, Any], week: list[dict[str, Any]], shopping: str,
     <a href="/">Hoy</a>
     <a href="/semana">Semana</a>
     <a href="/compra">Compra</a>
+    <a href="/random">Random</a>
     <a href="/platos">Platos</a>
     <a href="/config">Config</a>
     <form method="post" action="/logout"><button type="submit">Salir</button></form>

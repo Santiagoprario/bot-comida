@@ -293,6 +293,7 @@ def generate_week(
     offers: list[dict[str, str | None]],
     weather_context: dict[str, dict[str, float | str]] | None = None,
     custom_meals: list[dict[str, Any]] | None = None,
+    blocked_meal_names: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, float]]:
     people = int(profile.get("personas") or 2)
     avoid = _words(f"{conditions.get('restricciones', '')} {conditions.get('evitar', '')}")
@@ -303,6 +304,7 @@ def generate_week(
     delivery_day = _stable_delivery_day(profile, conditions, start)
     discovery_day = _stable_discovery_day(start, delivery_day)
     custom_by_type = _custom_meals_by_type(custom_meals or [])
+    blocked_names = {_normalize_text(name) for name in (blocked_meal_names or set())}
 
     plan: list[dict[str, Any]] = []
     shopping: defaultdict[str, float] = defaultdict(float)
@@ -341,6 +343,7 @@ def generate_week(
                 blocked_proteins=used_main_proteins if protein_scope else None,
                 ingredient_counts=used_limited_ingredients,
                 weather=daily["clima"],
+                blocked_meal_names=blocked_names,
             )
             used_names[meal.name] += 1
             if protein_scope:
@@ -361,6 +364,82 @@ def generate_week(
 
     _add_household_items(shopping, start, people)
     return plan, dict(sorted(shopping.items()))
+
+
+def replace_meal(
+    plan: list[dict[str, Any]],
+    day_index: int,
+    slot: str,
+    profile: dict[str, Any],
+    conditions: dict[str, Any],
+    offers: list[dict[str, str | None]],
+    weather: dict[str, float | str] | None = None,
+    custom_meals: list[dict[str, Any]] | None = None,
+    blocked_meal_names: set[str] | None = None,
+) -> tuple[dict[str, Any], dict[str, float]]:
+    people = int(profile.get("personas") or 2)
+    meal_type = "colación" if slot.startswith("colación") else slot
+    if meal_type not in MEALS:
+        raise ValueError(f"Momento de comida inválido: {slot}")
+
+    avoid = _words(f"{conditions.get('restricciones', '')} {conditions.get('evitar', '')}")
+    avoid -= {"lactosa", "menos", "mejor", "cuanto", "intolerancia"}
+    preferred = _words(f"{conditions.get('preferencias', '')} {profile.get('objetivo', '')}")
+    offer_words = _words(" ".join(offer["item"] or "" for offer in offers))
+    custom_by_type = _custom_meals_by_type(custom_meals or [])
+    blocked_names = {_normalize_text(name) for name in (blocked_meal_names or set())}
+
+    used_names: defaultdict[str, int] = defaultdict(int)
+    used_main_proteins: defaultdict[str, int] = defaultdict(int)
+    used_limited_ingredients: defaultdict[str, int] = defaultdict(int)
+    for index, day in enumerate(plan):
+        for current_slot in SLOTS:
+            meal = day["comidas"][current_slot]
+            if index == day_index and current_slot == slot:
+                continue
+            used_names[str(meal["nombre"])] += 1
+            current_type = "colación" if current_slot.startswith("colación") else current_slot
+            if _protein_limited_slot(current_slot, current_type):
+                used_main_proteins[_protein_key(str(meal["proteina"]))] += 1
+            for limited in ("arroz", "fideos", "dannette o copa cindor"):
+                if limited in (meal.get("ingredientes") or {}):
+                    used_limited_ingredients[limited] += 1
+
+    blocked_names.add(_normalize_text(str(plan[day_index]["comidas"][slot]["nombre"])))
+    selected = _pick_meal(
+        custom_by_type.get(meal_type, []) + MEALS[meal_type],
+        avoid,
+        preferred,
+        offer_words,
+        used_names,
+        day_index,
+        blocked_proteins=used_main_proteins if _protein_limited_slot(slot, meal_type) else None,
+        ingredient_counts=used_limited_ingredients,
+        weather=weather,
+        blocked_meal_names=blocked_names,
+    )
+    replacement = {
+        "nombre": selected.name,
+        "prep": selected.prep,
+        "proteina": selected.protein,
+        "ingredientes": selected.ingredients,
+        "porciones": people,
+    }
+    plan[day_index]["comidas"][slot] = replacement
+    return replacement, shopping_from_plan(plan)
+
+
+def shopping_from_plan(plan: list[dict[str, Any]]) -> dict[str, float]:
+    shopping: defaultdict[str, float] = defaultdict(float)
+    for day in plan:
+        for slot in SLOTS:
+            meal = day["comidas"][slot]
+            people = int(meal.get("porciones") or 2)
+            for ingredient, qty in (meal.get("ingredientes") or {}).items():
+                shopping[ingredient] += float(qty) * people
+    if plan:
+        _add_household_items(shopping, date.fromisoformat(str(plan[0]["fecha"])), int(next(iter(plan[0]["comidas"].values())).get("porciones") or 2))
+    return dict(sorted(shopping.items()))
 
 
 def _custom_meals_by_type(dishes: list[dict[str, Any]]) -> dict[str, list[Meal]]:
@@ -609,6 +688,7 @@ def _pick_meal(
     blocked_proteins: dict[str, int] | None = None,
     ingredient_counts: dict[str, int] | None = None,
     weather: dict[str, float | str] | None = None,
+    blocked_meal_names: set[str] | None = None,
 ) -> Meal:
     if forced_tag:
         tagged = [meal for meal in options if forced_tag in meal.tags]
@@ -619,6 +699,8 @@ def _pick_meal(
 
     scored: list[tuple[int, Meal]] = []
     for index, meal in enumerate(options):
+        if _normalize_text(meal.name) in (blocked_meal_names or set()):
+            continue
         haystack = _words(f"{meal.name} {meal.protein} {' '.join(meal.ingredients)} {' '.join(meal.tags)}")
         if haystack & avoid:
             continue
@@ -643,6 +725,8 @@ def _pick_meal(
     if not scored:
         scored = []
         for meal in options:
+            if _normalize_text(meal.name) in (blocked_meal_names or set()):
+                continue
             haystack = _words(f"{meal.name} {meal.protein} {' '.join(meal.ingredients)} {' '.join(meal.tags)}")
             if not (haystack & avoid):
                 if "milanesa" in meal.tags and forced_tag != "milanesa":
@@ -659,6 +743,7 @@ def _pick_meal(
             scored = [
                 (-used_names[meal.name], meal)
                 for meal in options
+                if _normalize_text(meal.name) not in (blocked_meal_names or set())
                 if not ("milanesa" in meal.tags and forced_tag != "milanesa")
                 and not ("postre" in meal.tags and forced_tag != "postre")
                 and not _hard_blocked_protein(_protein_key(meal.protein), blocked_proteins)

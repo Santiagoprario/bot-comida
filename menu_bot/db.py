@@ -424,6 +424,24 @@ class Database:
                 (chat_id, item.strip().lower(), sentiment, note),
             )
 
+    def list_feedback(self, chat_id: int, sentiment: str | None = None) -> list[dict[str, Any]]:
+        params: list[Any] = [chat_id]
+        where = "chat_id = ?"
+        if sentiment:
+            where += " AND sentiment = ?"
+            params.append(sentiment)
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT item, sentiment, note, created_at
+                FROM feedback
+                WHERE {where}
+                ORDER BY id DESC
+                """,
+                params,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def authorize_user(self, chat_id: int, invited_by: int | None = None) -> None:
         self.ensure_user(chat_id)
         with self.connect() as conn:
