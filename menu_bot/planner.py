@@ -294,6 +294,7 @@ def generate_week(
     weather_context: dict[str, dict[str, float | str]] | None = None,
     custom_meals: list[dict[str, Any]] | None = None,
     blocked_meal_names: set[str] | None = None,
+    favorite_meal_names: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, float]]:
     people = int(profile.get("personas") or 2)
     avoid = _words(f"{conditions.get('restricciones', '')} {conditions.get('evitar', '')}")
@@ -305,6 +306,7 @@ def generate_week(
     discovery_day = _stable_discovery_day(start, delivery_day)
     custom_by_type = _custom_meals_by_type(custom_meals or [])
     blocked_names = {_normalize_text(name) for name in (blocked_meal_names or set())}
+    favorite_names = {_normalize_text(name) for name in (favorite_meal_names or set())}
 
     plan: list[dict[str, Any]] = []
     shopping: defaultdict[str, float] = defaultdict(float)
@@ -344,6 +346,7 @@ def generate_week(
                 ingredient_counts=used_limited_ingredients,
                 weather=daily["clima"],
                 blocked_meal_names=blocked_names,
+                favorite_meal_names=favorite_names,
             )
             used_names[meal.name] += 1
             if protein_scope:
@@ -376,6 +379,7 @@ def replace_meal(
     weather: dict[str, float | str] | None = None,
     custom_meals: list[dict[str, Any]] | None = None,
     blocked_meal_names: set[str] | None = None,
+    favorite_meal_names: set[str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, float]]:
     people = int(profile.get("personas") or 2)
     meal_type = "colación" if slot.startswith("colación") else slot
@@ -388,6 +392,7 @@ def replace_meal(
     offer_words = _words(" ".join(offer["item"] or "" for offer in offers))
     custom_by_type = _custom_meals_by_type(custom_meals or [])
     blocked_names = {_normalize_text(name) for name in (blocked_meal_names or set())}
+    favorite_names = {_normalize_text(name) for name in (favorite_meal_names or set())}
 
     used_names: defaultdict[str, int] = defaultdict(int)
     used_main_proteins: defaultdict[str, int] = defaultdict(int)
@@ -417,6 +422,7 @@ def replace_meal(
         ingredient_counts=used_limited_ingredients,
         weather=weather,
         blocked_meal_names=blocked_names,
+        favorite_meal_names=favorite_names,
     )
     replacement = {
         "nombre": selected.name,
@@ -689,6 +695,7 @@ def _pick_meal(
     ingredient_counts: dict[str, int] | None = None,
     weather: dict[str, float | str] | None = None,
     blocked_meal_names: set[str] | None = None,
+    favorite_meal_names: set[str] | None = None,
 ) -> Meal:
     if forced_tag:
         tagged = [meal for meal in options if forced_tag in meal.tags]
@@ -716,6 +723,8 @@ def _pick_meal(
         score = 0
         score += 6 * len(haystack & offer_words)
         score += 2 * len(haystack & preferred)
+        if _normalize_text(meal.name) in (favorite_meal_names or set()):
+            score += 7
         score += 4 if "milanesa" in meal.tags and forced_tag == "milanesa" else 0
         score += _weather_score(meal, weather)
         score -= 10 * used_names[meal.name]

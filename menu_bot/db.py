@@ -433,7 +433,7 @@ class Database:
         with self.connect() as conn:
             rows = conn.execute(
                 f"""
-                SELECT item, sentiment, note, created_at
+                SELECT id, item, sentiment, note, created_at
                 FROM feedback
                 WHERE {where}
                 ORDER BY id DESC
@@ -441,6 +441,10 @@ class Database:
                 params,
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def delete_feedback(self, chat_id: int, feedback_id: int) -> None:
+        with self.connect() as conn:
+            conn.execute("DELETE FROM feedback WHERE chat_id = ? AND id = ?", (chat_id, feedback_id))
 
     def authorize_user(self, chat_id: int, invited_by: int | None = None) -> None:
         self.ensure_user(chat_id)

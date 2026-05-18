@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Mesa Lista", lifespan=lifespan)
-PWA_CACHE_VERSION = "menu-bot-v5"
+PWA_CACHE_VERSION = "menu-bot-v6"
 SESSION_COOKIE = "menu_session"
 CHAT_COOKIE = "menu_chat_id"
 PASSWORD_ITERATIONS = 210_000
@@ -296,13 +296,13 @@ def dishes_page(request: Request, pin: str | None = None, chat_id: int | None = 
 
 
 @app.get("/random", response_class=HTMLResponse)
-def random_page(request: Request, pin: str | None = None, chat_id: int | None = None) -> Any:
+def random_page(request: Request, pin: str | None = None, chat_id: int | None = None, filtro: str = "") -> Any:
     if gate := _login_redirect_if_needed(request, pin):
         return gate
     data = _app_data(request, pin, chat_id)
     if data["needs_onboarding"]:
         return _redirect("/onboarding", data["chat_id"], pin)
-    body = _random_screen(data["chat_id"], pin, _random_meal(data["chat_id"], data["today"]))
+    body = _random_screen(data["chat_id"], pin, _random_meal(data["chat_id"], data["today"], filtro), filtro)
     return _app_shell("Random", "random", body)
 
 
@@ -579,9 +579,11 @@ async def action_dislike_meal(request: Request) -> RedirectResponse:
     DB.add_feedback(active_chat_id, feedback_item, "negative", scope)
 
     user = DB.get_user(active_chat_id)
-    conditions, blocked_names = _conditions_with_feedback(active_chat_id, user["conditions"])
+    conditions, blocked_names, favorite_names = _conditions_with_feedback(active_chat_id, user["conditions"])
     if scope != "plato":
         conditions["evitar"] = f"{conditions.get('evitar', '')} {feedback_item}".strip()
+    _clear_current_week(active_chat_id)
+    weekly = _get_or_create(active_chat_id, today)
     replacement, shopping = replace_meal(
         weekly["plan"],
         day_index,
@@ -592,10 +594,38 @@ async def action_dislike_meal(request: Request) -> RedirectResponse:
         weather=weekly["plan"][day_index].get("clima"),
         custom_meals=DB.list_community_dishes(active_chat_id, active_only=True),
         blocked_meal_names=blocked_names,
+        favorite_meal_names=favorite_names,
     )
     DB.save_weekly_plan(active_chat_id, week_start_for(today).isoformat(), weekly["plan"], shopping)
     DB.add_feedback(active_chat_id, str(replacement["nombre"]), "replacement", f"{scope}: {feedback_item}")
     return _redirect("/", active_chat_id, pin)
+
+
+@app.post("/actions/favorite_meal")
+async def action_favorite_meal(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id, request)
+    meal_name = _form_str(form, "meal_name")
+    if meal_name:
+        DB.add_feedback(active_chat_id, meal_name, "positive", "favorito")
+    return _redirect("/", active_chat_id, pin)
+
+
+@app.post("/actions/delete_feedback")
+async def action_delete_feedback(request: Request) -> RedirectResponse:
+    form = _parse_form(await request.body())
+    chat_id = _form_int(form, "chat_id")
+    pin = _form_str(form, "pin") or None
+    _guard_web(request, pin)
+    active_chat_id = _active_chat_id(chat_id, request)
+    feedback_id = _form_int(form, "feedback_id")
+    if feedback_id:
+        DB.delete_feedback(active_chat_id, feedback_id)
+        _clear_current_week(active_chat_id)
+    return _redirect("/config", active_chat_id, pin)
 
 
 @app.post("/actions/stock")
@@ -1056,10 +1086,11 @@ def _clear_current_week(chat_id: int) -> None:
         conn.execute("DELETE FROM weekly_plans WHERE chat_id = ? AND week_start = ?", (chat_id, start))
 
 
-def _conditions_with_feedback(chat_id: int, conditions: dict[str, Any]) -> tuple[dict[str, Any], set[str]]:
+def _conditions_with_feedback(chat_id: int, conditions: dict[str, Any]) -> tuple[dict[str, Any], set[str], set[str]]:
     updated = dict(conditions)
     avoid_items: list[str] = []
     blocked_names: set[str] = set()
+    favorite_names: set[str] = set()
     for row in DB.list_feedback(chat_id, "negative"):
         item = str(row["item"]).strip()
         scope = str(row.get("note") or "")
@@ -1071,13 +1102,18 @@ def _conditions_with_feedback(chat_id: int, conditions: dict[str, Any]) -> tuple
             avoid_items.append(item)
     if avoid_items:
         updated["evitar"] = f"{updated.get('evitar', '')} {' '.join(avoid_items)}".strip()
-    return updated, blocked_names
+    for row in DB.list_feedback(chat_id, "positive"):
+        item = str(row["item"]).strip()
+        if item:
+            favorite_names.add(item)
+    return updated, blocked_names, favorite_names
 
 
-def _random_meal(chat_id: int, today: date) -> dict[str, Any]:
+def _random_meal(chat_id: int, today: date, filtro: str = "") -> dict[str, Any]:
     user = DB.get_user(chat_id)
-    conditions, blocked_names = _conditions_with_feedback(chat_id, user["conditions"])
+    conditions, blocked_names, _favorite_names = _conditions_with_feedback(chat_id, user["conditions"])
     avoid_words = _simple_words(str(conditions.get("evitar", "")))
+    filter_words = _simple_words(filtro)
     candidates: list[dict[str, Any]] = []
     for meal_type in ("almuerzo", "cena"):
         for meal in MEALS[meal_type]:
@@ -1085,6 +1121,8 @@ def _random_meal(chat_id: int, today: date) -> dict[str, Any]:
             if meal.name.lower() in blocked_names or haystack & avoid_words:
                 continue
             if "delivery" in meal.tags:
+                continue
+            if filter_words and not _random_filter_matches(filter_words, haystack):
                 continue
             candidates.append(
                 {
@@ -1099,7 +1137,10 @@ def _random_meal(chat_id: int, today: date) -> dict[str, Any]:
         if str(dish.get("slot", "")).lower() not in {"almuerzo", "cena"}:
             continue
         name = str(dish["name"])
+        haystack = _simple_words(f"{name} {dish.get('protein', '')} {' '.join(dish.get('ingredients') or {})} {' '.join(dish.get('tags') or [])}")
         if name.lower() in blocked_names:
+            continue
+        if filter_words and not _random_filter_matches(filter_words, haystack):
             continue
         candidates.append(
             {
@@ -1123,6 +1164,23 @@ def _random_meal(chat_id: int, today: date) -> dict[str, Any]:
     return candidates[sum(ord(char) for char in seed) % len(candidates)]
 
 
+def _random_filter_matches(filter_words: set[str], haystack: set[str]) -> bool:
+    aliases = {
+        "rapido": {"rapido", "air", "fryer", "plancha", "tacos", "hamburguesas", "omelette"},
+        "rápido": {"rapido", "air", "fryer", "plancha", "tacos", "hamburguesas", "omelette"},
+        "rico": {"gusto", "semanal", "chatarra", "milanesa", "pizza", "hamburguesas", "papas"},
+        "chatarra": {"chatarra", "pizza", "hamburguesas", "papas", "milanesa", "empanadas"},
+        "carne": {"carne", "asado", "vacio", "entraña", "bife", "lomo", "nalga", "cuadril", "roast"},
+        "liviano": {"ensalada", "bowl", "verduras", "saludable", "merluza", "pollo", "omelette"},
+        "pollo": {"pollo", "pechuga", "suprema", "muslo"},
+        "milanesa": {"milanesa", "milanesas"},
+    }
+    wanted: set[str] = set()
+    for word in filter_words:
+        wanted |= aliases.get(word, {word})
+    return bool(haystack & wanted)
+
+
 def _get_or_create(chat_id: int, day: date) -> dict[str, Any]:
     start = week_start_for(day)
     weekly = DB.get_weekly_plan(chat_id, start.isoformat())
@@ -1130,7 +1188,7 @@ def _get_or_create(chat_id: int, day: date) -> dict[str, Any]:
         return weekly
     user = DB.get_user(chat_id)
     offers = DB.list_offers(chat_id)
-    conditions, blocked_names = _conditions_with_feedback(chat_id, user["conditions"])
+    conditions, blocked_names, favorite_names = _conditions_with_feedback(chat_id, user["conditions"])
     plan, shopping = generate_week(
         start,
         user["profile"],
@@ -1139,6 +1197,7 @@ def _get_or_create(chat_id: int, day: date) -> dict[str, Any]:
         fetch_weather_context(user["profile"]),
         DB.list_community_dishes(chat_id, active_only=True),
         blocked_names,
+        favorite_names,
     )
     DB.save_weekly_plan(chat_id, start.isoformat(), plan, shopping)
     return {"plan": plan, "shopping_list": shopping}
@@ -1541,6 +1600,29 @@ def _app_shell(title: str, active: str, body: str) -> str:
       background: linear-gradient(135deg, #fffdf8 0%, #fff4e8 54%, #eaf1ff 100%);
       margin-bottom: 16px;
     }}
+    .filter-row {{
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+      margin-bottom: 4px;
+    }}
+    .filter-pill {{
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fffdf8;
+      color: var(--plum);
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 900;
+      text-decoration: none;
+    }}
+    .filter-pill.active {{
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }}
     .random-card {{
       position: relative;
       z-index: 1;
@@ -1616,6 +1698,30 @@ def _app_shell(title: str, active: str, body: str) -> str:
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 13px;
       overflow-wrap: anywhere;
+    }}
+    .learned-row {{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf0;
+      padding: 10px;
+    }}
+    .learned-row strong,
+    .learned-row span,
+    .learned-row small {{
+      display: block;
+    }}
+    .learned-row strong {{
+      color: var(--accent-strong);
+      font-size: 12px;
+      text-transform: uppercase;
+    }}
+    .learned-row small {{
+      color: var(--muted);
+      margin-top: 2px;
     }}
     form {{
       margin: 0;
@@ -1852,6 +1958,7 @@ def _config_screen(
     )
     if not offer_rows:
         offer_rows = "<div class=\"meta\">Sin ofertas cargadas.</div>"
+    learned_rows = _learned_feedback_markup(chat_id, pin)
     return f"""
     <section class="card">
       <h2>Acciones</h2>
@@ -1971,6 +2078,11 @@ def _config_screen(
         </form>
       </article>
       <article class="card">
+        <h2>Gustos aprendidos</h2>
+        <p class="meta">Podés borrar cualquier bloqueo o favorito para que el menú vuelva a considerarlo.</p>
+        <div class="stack">{learned_rows}</div>
+      </article>
+      <article class="card">
         <h2>Datos técnicos</h2>
         <dl class="kv">
           <dt>Usuario</dt><dd>{chat_id}</dd>
@@ -2044,12 +2156,64 @@ def _dishes_screen(chat_id: int, pin: str | None, dishes: list[dict[str, Any]]) 
     """
 
 
-def _random_screen(chat_id: int, pin: str | None, meal: dict[str, Any]) -> str:
+def _learned_feedback_markup(chat_id: int, pin: str | None) -> str:
+    rows = [
+        row
+        for row in DB.list_feedback(chat_id)
+        if row["sentiment"] in {"negative", "positive"}
+    ]
+    if not rows:
+        return '<div class="meta">Todavía no hay gustos aprendidos.</div>'
+    labels = {
+        "negative": "Evitar",
+        "positive": "Favorito",
+    }
+    html = []
+    for row in rows[:30]:
+        hidden = _hidden_context(chat_id, pin)
+        html.append(
+            f"""
+            <div class="learned-row">
+              <div>
+                <strong>{escape(labels.get(str(row["sentiment"]), str(row["sentiment"])))}</strong>
+                <span>{escape(str(row["item"]))}</span>
+                <small>{escape(str(row.get("note") or ""))}</small>
+              </div>
+              <form method="post" action="/actions/delete_feedback">
+                {hidden}
+                <input type="hidden" name="feedback_id" value="{int(row["id"])}">
+                <button class="button secondary" type="submit">Borrar</button>
+              </form>
+            </div>
+            """
+        )
+    return "".join(html)
+
+
+def _random_screen(chat_id: int, pin: str | None, meal: dict[str, Any], filtro: str = "") -> str:
     hidden = _hidden_context(chat_id, pin)
     recipe = _recipe_for("random", meal, [])
     ingredients = "".join(f"<li>{escape(item)}</li>" for item in recipe["ingredients"])
     steps = "".join(f"<li>{escape(step)}</li>" for step in recipe["steps"])
+    def filter_href(value: str) -> str:
+        params: dict[str, str | int] = {"chat_id": chat_id, "filtro": value}
+        if pin:
+            params["pin"] = pin
+        return f"/random?{urlencode(params)}"
+
+    filters = "".join(
+        f'<a class="filter-pill {"active" if filtro == value else ""}" href="{escape(filter_href(value), quote=True)}">{label}</a>'
+        for value, label in (
+            ("rapido", "Rápido"),
+            ("rico", "Rico"),
+            ("carne", "Carne"),
+            ("liviano", "Liviano"),
+            ("chatarra", "Chatarra"),
+            ("milanesa", "Milanesa"),
+        )
+    )
     return f"""
+    <section class="filter-row">{filters}</section>
     <section class="random-stage">
       <div class="random-orbit" aria-hidden="true">
         <span></span><span></span><span></span><span></span>
@@ -2061,6 +2225,7 @@ def _random_screen(chat_id: int, pin: str | None, meal: dict[str, Any]) -> str:
         <div class="actions">
           <form method="get" action="/random">
             {hidden}
+            <input type="hidden" name="filtro" value="{escape(filtro, quote=True)}">
             <button class="button" type="submit">Tirar otra</button>
           </form>
         </div>
@@ -2294,6 +2459,11 @@ def _page(
               <input type="hidden" name="scope" value="plato">
               <button class="swap-button" type="submit">No más este plato</button>
             </form>
+            <form method="post" action="/actions/favorite_meal">
+              {hidden}
+              <input type="hidden" name="meal_name" value="{escape(str(meals[slot]["nombre"]), quote=True)}">
+              <button class="favorite-button" type="submit">Me gustó</button>
+            </form>
             <div class="split-actions">
               <form method="post" action="/actions/dislike_meal">
                 {hidden}
@@ -2499,9 +2669,10 @@ def _page(
     }}
     h2 {{
       margin: 10px 0;
-      font-size: 24px;
+      font-size: clamp(20px, 2.4vw, 26px);
       line-height: 1.12;
       letter-spacing: 0;
+      overflow-wrap: anywhere;
     }}
     p {{
       margin: 0;
@@ -2532,10 +2703,10 @@ def _page(
     .meal-actions form {{
       margin: 0;
     }}
-    .recipe-button, .swap-button, .mini-button {{
+    .recipe-button, .swap-button, .mini-button, .favorite-button {{
       width: 100%;
     }}
-    .swap-button, .mini-button {{
+    .swap-button, .mini-button, .favorite-button {{
       border: 1px solid var(--line);
       background: #fff7ef;
       color: var(--plum);
@@ -2543,6 +2714,11 @@ def _page(
       padding: 9px 12px;
       font-weight: 850;
       cursor: pointer;
+    }}
+    .favorite-button {{
+      background: #fff3c4;
+      border-color: #f1cf73;
+      color: #6b4b00;
     }}
     .split-actions {{
       display: grid;
